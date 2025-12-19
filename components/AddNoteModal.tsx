@@ -31,13 +31,32 @@ export default function AddNoteModal({ open, onClose, onCreate, defaultFolder }:
 
   return (
     <Modal open={open} onClose={onClose} title="ایجاد یادداشت">
-      <form onSubmit={submit} className="space-y-3">
-        <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="عنوان" />
-        <textarea value={content} onChange={(e) => setContent(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="متن" />
-        <div className="flex justify-end">
-          <button type="submit" disabled={loading || !title} className="px-4 py-2 bg-blue-500 text-white rounded">{loading ? 'در حال ارسال...' : 'ذخیره'}</button>
+      <form onSubmit={submit} className="modal-form">
+        <div className="modal-form-group">
+          <input 
+            value={title} 
+            onChange={(e) => setTitle(e.target.value)} 
+            className="input" 
+            placeholder="عنوان"
+            autoFocus
+          />
+        </div>
+        <div className="modal-form-group">
+          <textarea 
+            value={content} 
+            onChange={(e) => setContent(e.target.value)} 
+            className="input" 
+            placeholder="متن یادداشت"
+            rows={6}
+          />
+        </div>
+        <div className="modal-footer-inner">
+          <button type="submit" disabled={loading || !title} className="btn-primary">
+            {loading ? 'در حال ارسال...' : 'ذخیره'}
+          </button>
         </div>
       </form>
     </Modal>
   );
 }
+

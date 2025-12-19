@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./styles/components.css";
 import Providers from "../components/Providers";
 
 export default function RootLayout({
@@ -8,8 +9,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fa" suppressHydrationWarning>
-      <body className="antialiased bg-white dark:bg-black text-black dark:text-white">
-        <Providers>{children}</Providers>
+      <body dir="rtl" className="antialiased">
+        <Providers>
+          <div className="app-shell">{children}</div>
+        </Providers>
       </body>
     </html>
   );

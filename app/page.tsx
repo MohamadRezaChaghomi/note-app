@@ -5,9 +5,7 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import Folder from "../components/Folder";
 import FolderModal from "../components/FolderModal";
-import AuthModal from "../components/AuthModal";
 import AddNoteModal from "../components/AddNoteModal";
-import NoteModal from "../components/NoteModal";
 
 export default function Home() {
   const [notes, setNotes] = useState<any[]>([]);
@@ -16,11 +14,7 @@ export default function Home() {
   const [customFolders, setCustomFolders] = useState<string[]>([]);
 
   const [openFolderModal, setOpenFolderModal] = useState(false);
-  const [openAuthModal, setOpenAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [openAddNoteModal, setOpenAddNoteModal] = useState(false);
-  const [openNoteModal, setOpenNoteModal] = useState(false);
-  const [activeNote, setActiveNote] = useState<any | null>(null);
 
   // mock notes for preview (will be replaced by real API when logged in)
   useEffect(() => {
@@ -58,69 +52,57 @@ export default function Home() {
   }, [notes, selectedFolder, query]);
 
   useEffect(() => {
-    function onOpenAuth(e: Event) {
-      const detail = (e as CustomEvent).detail as any;
-      setAuthMode(detail?.mode === 'register' ? 'register' : 'login');
-      setOpenAuthModal(true);
-    }
-
     function onOpenAddNote() {
       setOpenAddNoteModal(true);
     }
 
-    window.addEventListener('open-auth', onOpenAuth as EventListener);
     window.addEventListener('open-add-note', onOpenAddNote as EventListener);
 
     return () => {
-      window.removeEventListener('open-auth', onOpenAuth as EventListener);
       window.removeEventListener('open-add-note', onOpenAddNote as EventListener);
     };
   }, []);
 
   return (
-    <main className="min-h-screen flex items-start justify-center bg-gray-50 dark:bg-black p-6">
-      <div className="w-full max-w-[1100px] rounded-2xl shadow-lg overflow-hidden bg-transparent flex gap-6" dir="rtl">
-        <div className="w-1/3">
-          <Sidebar
-            folders={folders}
-            selected={selectedFolder}
-            onSelect={(id) => {
-              if (id === "__add_folder__") {
-                setOpenFolderModal(true);
-              } else {
-                setSelectedFolder(id);
-              }
-            }}
-            className="h-[640px]"
-          />
-        </div>
+    <main className="app-layout">
+      <div className="layout-inner" dir="rtl">
+        <Sidebar
+          folders={folders}
+          selected={selectedFolder}
+          onSelect={(id) => {
+            if (id === "__add_folder__") {
+              setOpenFolderModal(true);
+            } else {
+              setSelectedFolder(id);
+            }
+          }}
+          className=""
+        />
 
-        <div className="flex-1 bg-white dark:bg-[#070707] rounded-xl overflow-hidden">
+        <div className="content-panel">
           <Navbar onSearch={(q) => setQuery(q)} />
 
-          <div className="p-4 h-[580px] overflow-auto">
-            <div className="mb-4">
-              <h2 className="text-2xl font-bold">{selectedFolder || "همه"}</h2>
+          <div className="content-body">
+            <div style={{ marginBottom: 12 }}>
+              <h2 className="note-title">{selectedFolder || "همه"}</h2>
             </div>
 
-            <div className="space-y-3">
+            <div className="notes-grid">
               {filteredNotes.map((n) => (
-                <div key={n._id} onClick={() => { setActiveNote(n); setOpenNoteModal(true); }}>
+                <div key={n._id} onClick={() => { window.location.href = `/notes/${n._id}` }}>
                   <Folder name={n.folder || "quick"} notes={[{ id: n._id, title: n.title, content: n.content }]} />
                 </div>
               ))}
 
               {filteredNotes.length === 0 && (
-                <div className="text-sm text-gray-500">یادداشتی برای این فولدر وجود ندارد.</div>
+                <div className="note-content">یادداشتی برای این فولدر وجود ندارد.</div>
               )}
             </div>
           </div>
         </div>
       </div>
       <FolderModal open={openFolderModal} onClose={() => setOpenFolderModal(false)} onCreate={(name) => setCustomFolders((s) => [...s, name])} />
-      <AuthModal open={openAuthModal} onClose={() => setOpenAuthModal(false)} mode={authMode} />
       <AddNoteModal open={openAddNoteModal} onClose={() => setOpenAddNoteModal(false)} defaultFolder={selectedFolder === 'همه' ? 'quick' : selectedFolder} onCreate={(note) => setNotes((s) => [note, ...s])} />
-      <NoteModal open={openNoteModal} onClose={() => setOpenNoteModal(false)} note={activeNote ? { title: activeNote.title, content: activeNote.content } : null} />
     </main>
   );
 }

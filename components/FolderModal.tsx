@@ -16,12 +16,21 @@ export default function FolderModal({ open, onClose, onCreate }: { open: boolean
 
   return (
     <Modal open={open} onClose={onClose} title="افزودن فولدر">
-      <form onSubmit={submit} className="space-y-3">
-        <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="نام فولدر" />
-        <div className="flex justify-end">
-          <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">ایجاد</button>
+      <form onSubmit={submit} className="modal-form">
+        <div className="modal-form-group">
+          <input 
+            value={name} 
+            onChange={(e) => setName(e.target.value)} 
+            className="input" 
+            placeholder="نام فولدر"
+            autoFocus
+          />
+        </div>
+        <div className="modal-footer-inner">
+          <button type="submit" className="btn-primary">ایجاد</button>
         </div>
       </form>
     </Modal>
   );
 }
+

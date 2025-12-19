@@ -1,26 +1,43 @@
 @import "tailwindcss";
 
+/* =====================
+   Global Theme Tokens
+===================== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0f1419 !important; /* deep navy-black background */
+  --fg: #e5e7eb  !important; /* light text */
+  --muted: #9ca3af  !important; /* softer muted text */
+  --card: #1a2332  !important; /* slightly lighter card for contrast */
+  --border: rgba(255, 255, 255, 0.08)  !important; /* light borders */
+  --accent: #818cf8  !important; /* vibrant indigo accent */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Dark mode */
+html.dark {
+  --bg: #0b1220  !important;
+  --fg: #e5e7eb  !important;
+  --muted: #9ca3af  !important;
+  --card: #0f172a  !important;
+  --border: rgba(255, 255, 255, 0.08)  !important;
+  --accent: #818cf8  !important;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  min-height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  line-height: 1.6;
+}
+
+/* Smooth theme switch */
+* {
+  transition: background-color 0.15s ease, color 0.15s ease,
+    border-color 0.15s ease;
 }

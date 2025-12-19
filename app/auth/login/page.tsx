@@ -1,28 +1,68 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import AuthNavbar from "@/components/AuthNavbar";
+import Link from "next/link";
+import { useState } from "react";
 
 export default function LoginPage() {
-  async function handleLogin(formData: FormData) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
     await signIn("credentials", {
-      email: formData.get("email"),
-      password: formData.get("password"),
-      callbackUrl: "/notes",
+      email,
+      password,
+      callbackUrl: "/",
     });
   }
 
   return (
-    <form action={handleLogin} className="space-y-4 w-80 mx-auto mt-40">
-      <input name="email" placeholder="ایمیل" className="border p-2 w-full" />
-      <input
-        name="password"
-        type="password"
-        placeholder="رمز عبور"
-        className="border p-2 w-full"
-      />
-      <button className="bg-black text-white p-2 w-full">
-        ورود
-      </button>
-    </form>
+    <div className="auth-layout">
+      <AuthNavbar />
+      <div className="auth-container">
+        <div className="auth-card fade-in">
+          <h2 className="auth-title">ورود</h2>
+          <p className="auth-subtitle">اطلاعات خود را وارد کنید</p>
+
+          <form onSubmit={handleLogin} className="auth-form">
+            <div className="auth-form-group">
+              <label className="auth-label" htmlFor="email">ایمیل</label>
+              <input
+                id="email"
+                type="email"
+                className="auth-input"
+                placeholder="example@gmail.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="auth-form-group">
+              <label className="auth-label" htmlFor="password">رمز عبور</label>
+              <input
+                id="password"
+                type="password"
+                className="auth-input"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <button type="submit" className="auth-button">
+              ورود
+            </button>
+          </form>
+
+          <div className="auth-link">
+            حساب ندارید؟ <Link href="/auth/register">ثبت نام کنید</Link>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
