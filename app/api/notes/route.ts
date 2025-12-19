@@ -22,13 +22,13 @@ export async function POST(req: Request) {
   if (!session) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
-
-  const { title, content } = await req.json();
+  const { title, content, folder } = await req.json();
   await connectDB();
 
   const note = await Note.create({
     title,
     content,
+    folder: folder || "quick",
     userId: (session.user as any).id,
   });
 

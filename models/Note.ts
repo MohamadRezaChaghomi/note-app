@@ -17,6 +17,11 @@ const NoteSchema = new Schema(
       type: String,
       required: true,
     },
+    folder: {
+      type: String,
+      required: false,
+      default: "quick",
+    },
   },
   { timestamps: true }
 );
