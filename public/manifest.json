@@ -1,0 +1,6 @@
+{
+  "name": "Web Notes",
+  "short_name": "Notes",
+  "start_url": "/",
+  "display": "standalone"
+}

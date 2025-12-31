@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Sparkles, ArrowRight, CheckCircle, Users, Shield, Zap } from "lucide-react";
 import { useSession } from "next-auth/react";
-import "@/styles/home.css";
+import { useEffect, useState } from "react";
 
 export default function Home() {
   const router = useRouter();

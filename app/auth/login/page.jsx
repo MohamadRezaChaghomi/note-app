@@ -46,26 +46,52 @@ export default function LoginPage() {
       localStorage.removeItem("rememberedEmail");
     }
 
-    const res = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-      captchaId: captcha.captchaId,
-      captchaAnswer: captcha.captchaAnswer
-    });
+    try {
+      const res = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+        captchaId: captcha.captchaId,
+        captchaAnswer: captcha.captchaAnswer
+      });
 
-    setLoading(false);
+      console.log("SignIn response:", res); // برای دیباگ
 
-    if (res?.ok) {
-      router.push("/dashboard");
-    } else {
-      setError("Invalid email, password, or captcha. Please try again.");
+      if (res?.error === null || !res?.error) {
+        // Login successful
+        router.push("/dashboard");
+        router.refresh(); // Refresh the page to update session
+      } else {
+        // Login failed
+        let errorMsg = "Invalid email, password, or captcha. Please try again.";
+        
+        if (res?.error === "CredentialsSignin") {
+          errorMsg = "Invalid email or password.";
+        } else if (res?.error?.includes("captcha")) {
+          errorMsg = "Captcha verification failed. Please try again.";
+        }
+        
+        setError(errorMsg);
+        // Refresh captcha on failed attempt
+        setCaptcha({ captchaId: "", captchaAnswer: "" });
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    await signIn("google", { callbackUrl: "/dashboard" });
+    try {
+      await signIn("google", { callbackUrl: "/dashboard" });
+    } catch (err) {
+      console.error("Google signin error:", err);
+      setError("Google sign-in failed. Please try again.");
+      setLoading(false);
+    }
   };
 
   const handleGuestLogin = () => {
@@ -106,20 +132,6 @@ export default function LoginPage() {
               <div className="feature-item">
                 <Github className="w-5 h-5 text-purple-500" />
                 <span>Open Source</span>
-              </div>
-            </div>
-
-            <div className="testimonial">
-              <div className="quote-icon">"</div>
-              <p className="quote-text">
-                The best note-taking experience I've ever had. Simple, fast, and powerful.
-              </p>
-              <div className="quote-author">
-                <div className="author-avatar">JS</div>
-                <div className="author-info">
-                  <div className="author-name">John Smith</div>
-                  <div className="author-role">Product Designer</div>
-                </div>
               </div>
             </div>
           </div>
@@ -167,7 +179,7 @@ export default function LoginPage() {
 
             {/* Form Header */}
             <div className="form-header">
-              <h1 className="form-title">Welcome Back</h1>
+              <h1 className="form-title"> خوش برگشتی مشتی</h1>
               <p className="form-subtitle">
                 Sign in to your account to continue to Web Notes
               </p>
@@ -190,6 +202,7 @@ export default function LoginPage() {
                     className="form-input"
                     required
                     disabled={loading}
+                    autoComplete="email"
                   />
                 </div>
               </div>
@@ -209,6 +222,7 @@ export default function LoginPage() {
                     className="form-input"
                     required
                     disabled={loading}
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
@@ -247,7 +261,11 @@ export default function LoginPage() {
 
               {/* Captcha */}
               <div className="captcha-section">
-                <Captcha onChange={setCaptcha} disabled={loading} />
+                <Captcha 
+                  onChange={setCaptcha} 
+                  disabled={loading}
+                  key={error ? "refresh-on-error" : "normal"} // Refresh captcha on error
+                />
               </div>
 
               {/* Submit Button */}
