@@ -1,13 +1,82 @@
 import mongoose from "mongoose";
 
-const UserSchema = new mongoose.Schema(
-  {
-    email: { type: String, unique: true, index: true, required: true },
-    name: { type: String, default: "" },
-    passwordHash: { type: String, default: "" },
-    provider: { type: String, default: "credentials" } // credentials | google
+const userSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true
   },
-  { timestamps: true }
-);
+  password: {
+    type: String,
+    required: function() { return this.provider === "credentials"; }
+  },
+  name: {
+    type: String,
+    required: true
+  },
+  role: {
+    type: String,
+    enum: ["user", "admin"],
+    default: "user"
+  },
+  image: String,
+  provider: {
+    type: String,
+    enum: ["credentials", "google"],
+    default: "credentials"
+  },
+  
+  // Security fields
+  loginAttempts: {
+    type: Number,
+    default: 0,
+    select: false
+  },
+  lockUntil: {
+    type: Date,
+    select: false
+  },
+  
+  // Password reset
+  resetCode: {
+    type: String,
+    select: false
+  },
+  resetCodeExpires: {
+    type: Date,
+    select: false
+  },
+  
+  // Activity tracking
+  lastLogin: Date,
+  lastActive: Date,
+  
+  // Settings
+  settings: {
+    theme: {
+      type: String,
+      enum: ["light", "dark", "system"],
+      default: "system"
+    },
+    language: {
+      type: String,
+      default: "en"
+    },
+    notifications: {
+      type: Boolean,
+      default: true
+    }
+  }
+}, {
+  timestamps: true
+});
 
-export default mongoose.models.User || mongoose.model("User", UserSchema);
+// Indexes
+userSchema.index({ email: 1 });
+userSchema.index({ resetCodeExpires: 1 }, { expireAfterSeconds: 0 });
+
+const User = mongoose.models.User || mongoose.model("User", userSchema);
+
+export default User;

@@ -2,13 +2,34 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import Captcha from "@/components/ui/Captcha";
 import {
   User, Mail, Lock, Eye, EyeOff, CheckCircle,
   AlertCircle, Loader2, Sparkles, Shield, ArrowRight
 } from "lucide-react";
 import Link from "next/link";
 import "@/styles/auth.css";
+
+// reCAPTCHA utility
+const executeRecaptcha = async (action = 'register') => {
+  if (typeof window === 'undefined' || !window.grecaptcha) {
+    console.error('reCAPTCHA not loaded');
+    return null;
+  }
+
+  try {
+    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+    if (!siteKey) {
+      console.warn('reCAPTCHA site key not configured');
+      return 'development_token';
+    }
+
+    const token = await window.grecaptcha.execute(siteKey, { action });
+    return token;
+  } catch (error) {
+    console.error('reCAPTCHA execution failed:', error);
+    return null;
+  }
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -20,10 +41,10 @@ export default function RegisterPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [captcha, setCaptcha] = useState({ captchaId: "", captchaAnswer: "" });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [recaptchaToken, setRecaptchaToken] = useState("");
 
   const validateForm = () => {
     const newErrors = {};
@@ -69,6 +90,13 @@ export default function RegisterPage() {
       return;
     }
 
+    // Get reCAPTCHA token
+    const recaptchaToken = await executeRecaptcha('register');
+    if (!recaptchaToken) {
+      setErrors({ submit: "Security verification failed. Please refresh the page." });
+      return;
+    }
+
     setLoading(true);
     setErrors({});
     
@@ -80,14 +108,13 @@ export default function RegisterPage() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          ...captcha 
+          recaptchaToken
         })
       });
       
       const data = await res.json();
       
       if (data.ok) {
-        // Show success message and redirect
         setTimeout(() => {
           router.push("/auth/login?registered=1");
         }, 1500);
@@ -95,6 +122,8 @@ export default function RegisterPage() {
         setErrors({ 
           submit: data.error === "EMAIL_EXISTS" 
             ? "This email is already registered. Please use a different email or login." 
+            : data.error === "RECAPTCHA_FAILED"
+            ? "Security verification failed. Please try again."
             : "Registration failed. Please try again." 
         });
       }
@@ -133,9 +162,6 @@ export default function RegisterPage() {
         {/* Left Panel - Form */}
         <div className="auth-form-container">
           <div className="form-card">
-            {/* Success Message Placeholder */}
-            {/* {success && <SuccessMessage />} */}
-
             {/* Form Header */}
             <div className="form-header">
               <h1 className="form-title">Create Account</h1>
@@ -326,9 +352,16 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* Captcha */}
+              {/* reCAPTCHA */}
               <div className="captcha-section">
-                <Captcha onChange={setCaptcha} disabled={loading} />
+                <GoogleReCaptcha 
+                  ref={recaptchaRef}
+                  onVerify={handleRecaptchaVerify} 
+                  action="register" 
+                />
+                {recaptchaError && (
+                  <div className="input-error">Please complete the security check</div>
+                )}
               </div>
 
               {/* Terms Agreement */}
@@ -352,7 +385,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 className="submit-btn primary"
-                disabled={loading || !captcha.captchaId}
+                disabled={loading || !recaptchaToken}
               >
                 {loading ? (
                   <>

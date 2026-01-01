@@ -1,2 +1,5 @@
 import { logout } from "@/controllers/auth.controller";
-export async function POST() { return logout(); }
+
+export async function POST() {
+  return logout();
+}
