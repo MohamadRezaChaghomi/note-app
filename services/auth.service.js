@@ -2,7 +2,7 @@ import User from "@/models/User.model";
 import bcrypt from "bcryptjs";
 import { recaptchaService } from "@/lib/recaptcha";
 import { generateNumericCode } from "@/lib/crypto";
-import { sendMail } from "@/lib/mail.service";
+import { sendMail } from "@/services/mail.service";
 
 class AuthService {
   constructor() {

@@ -187,7 +187,6 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="auth-container">
-      {/* Background Decoration */}
       <div className="auth-background">
         <div className="bg-shape shape-1" />
         <div className="bg-shape shape-2" />
@@ -198,7 +197,6 @@ export default function ResetPasswordPage() {
       <div className="auth-content compact">
         <div className="auth-form-container">
           <div className="form-card">
-            {/* Success Message */}
             {message.type === "success" && (
               <div className="success-state">
                 <div className="success-icon-large">
@@ -209,7 +207,6 @@ export default function ResetPasswordPage() {
               </div>
             )}
 
-            {/* Error Message */}
             {message.type === "error" && (
               <div className="alert-message error">
                 <AlertCircle className="w-5 h-5" />
@@ -220,10 +217,8 @@ export default function ResetPasswordPage() {
               </div>
             )}
 
-            {/* Form (only show if no success) */}
             {message.type !== "success" && (
               <>
-                {/* Header */}
                 <div className="form-header">
                   <h1 className="form-title">New Password</h1>
                   <p className="form-subtitle">
@@ -235,9 +230,7 @@ export default function ResetPasswordPage() {
                   </div>
                 </div>
 
-                {/* Form */}
                 <form onSubmit={handleSubmit} className="login-form">
-                  {/* New Password */}
                   <div className="form-group">
                     <label className="form-label">
                       <Lock className="w-4 h-4" />
@@ -267,7 +260,6 @@ export default function ResetPasswordPage() {
                       </button>
                     </div>
                     
-                    {/* Password Strength Meter */}
                     {formData.newPassword && (
                       <div className="password-strength">
                         <div className="strength-bars">
@@ -291,7 +283,6 @@ export default function ResetPasswordPage() {
                       </div>
                     )}
                     
-                    {/* Password Requirements */}
                     <div className="password-requirements">
                       <div className={`requirement ${formData.newPassword.length >= 8 ? 'met' : ''}`}>
                         <CheckCircle className="w-3 h-3" />
@@ -312,7 +303,6 @@ export default function ResetPasswordPage() {
                     </div>
                   </div>
 
-                  {/* Confirm Password */}
                   <div className="form-group">
                     <label className="form-label">
                       <Lock className="w-4 h-4" />
@@ -346,7 +336,6 @@ export default function ResetPasswordPage() {
                     </div>
                   </div>
 
-                  {/* Submit Button */}
                   <button
                     type="submit"
                     className="submit-btn primary"
@@ -366,7 +355,6 @@ export default function ResetPasswordPage() {
                   </button>
                 </form>
 
-                {/* Security Tips */}
                 <div className="security-tips">
                   <div className="tip">
                     <Shield className="w-4 h-4 text-green-500" />

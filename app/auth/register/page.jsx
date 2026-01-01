@@ -1,35 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   User, Mail, Lock, Eye, EyeOff, CheckCircle,
   AlertCircle, Loader2, Sparkles, Shield, ArrowRight
 } from "lucide-react";
 import Link from "next/link";
 import "@/styles/auth.css";
-
-// reCAPTCHA utility
-const executeRecaptcha = async (action = 'register') => {
-  if (typeof window === 'undefined' || !window.grecaptcha) {
-    console.error('reCAPTCHA not loaded');
-    return null;
-  }
-
-  try {
-    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
-    if (!siteKey) {
-      console.warn('reCAPTCHA site key not configured');
-      return 'development_token';
-    }
-
-    const token = await window.grecaptcha.execute(siteKey, { action });
-    return token;
-  } catch (error) {
-    console.error('reCAPTCHA execution failed:', error);
-    return null;
-  }
-};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -45,6 +23,93 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState({});
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [recaptchaToken, setRecaptchaToken] = useState("");
+  const [recaptchaError, setRecaptchaError] = useState("");
+  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
+
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+
+  // Load reCAPTCHA script
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const loadRecaptcha = () => {
+      if (window.grecaptcha) {
+        window.grecaptcha.ready(() => {
+          setRecaptchaLoaded(true);
+          executeRecaptcha();
+        });
+        return;
+      }
+
+      if (document.querySelector(`script[src*="recaptcha"]`)) {
+        const checkInterval = setInterval(() => {
+          if (window.grecaptcha) {
+            clearInterval(checkInterval);
+            window.grecaptcha.ready(() => {
+              setRecaptchaLoaded(true);
+              executeRecaptcha();
+            });
+          }
+        }, 100);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        if (window.grecaptcha) {
+          window.grecaptcha.ready(() => {
+            setRecaptchaLoaded(true);
+            executeRecaptcha();
+          });
+        } else {
+          setRecaptchaError('reCAPTCHA loaded but not available');
+        }
+      };
+      
+      script.onerror = () => {
+        console.error('Failed to load reCAPTCHA script');
+        setRecaptchaError('Failed to load security check');
+      };
+      
+      document.head.appendChild(script);
+    };
+
+    loadRecaptcha();
+  }, [siteKey]);
+
+  const executeRecaptcha = async () => {
+    try {
+      if (!window.grecaptcha) {
+        throw new Error('reCAPTCHA not available');
+      }
+
+      await window.grecaptcha.ready(async () => {
+        const token = await window.grecaptcha.execute(siteKey, { action: 'register' });
+        if (token) {
+          setRecaptchaToken(token);
+          setRecaptchaError("");
+        }
+      });
+    } catch (error) {
+      console.error('reCAPTCHA execution failed:', error);
+      setRecaptchaError('Security check failed. Please refresh the page.');
+      
+      if (process.env.NODE_ENV === 'development') {
+        setRecaptchaToken('development_token_' + Date.now());
+        setRecaptchaError("");
+      }
+    }
+  };
+
+  const refreshRecaptcha = async () => {
+    setRecaptchaToken("");
+    setRecaptchaError("");
+    await executeRecaptcha();
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -90,11 +155,12 @@ export default function RegisterPage() {
       return;
     }
 
-    // Get reCAPTCHA token
-    const recaptchaToken = await executeRecaptcha('register');
     if (!recaptchaToken) {
-      setErrors({ submit: "Security verification failed. Please refresh the page." });
-      return;
+      await refreshRecaptcha();
+      if (!recaptchaToken) {
+        setErrors({ submit: "Security verification failed. Please try again." });
+        return;
+      }
     }
 
     setLoading(true);
@@ -108,7 +174,7 @@ export default function RegisterPage() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          recaptchaToken
+          recaptchaToken: recaptchaToken
         })
       });
       
@@ -150,7 +216,6 @@ export default function RegisterPage() {
 
   return (
     <div className="auth-container">
-      {/* Background Decoration */}
       <div className="auth-background">
         <div className="bg-shape shape-1" />
         <div className="bg-shape shape-2" />
@@ -162,7 +227,14 @@ export default function RegisterPage() {
         {/* Left Panel - Form */}
         <div className="auth-form-container">
           <div className="form-card">
-            {/* Form Header */}
+            {/* Back Button */}
+            <div className="back-button">
+              <Link href="/auth/login" className="back-link">
+                <ArrowRight className="w-4 h-4 rotate-180" />
+                Back to login
+              </Link>
+            </div>
+
             <div className="form-header">
               <h1 className="form-title">Create Account</h1>
               <p className="form-subtitle">
@@ -170,7 +242,6 @@ export default function RegisterPage() {
               </p>
             </div>
 
-            {/* Error Messages */}
             {errors.submit && (
               <div className="alert-message error">
                 <AlertCircle className="w-5 h-5" />
@@ -181,9 +252,7 @@ export default function RegisterPage() {
               </div>
             )}
 
-            {/* Registration Form */}
             <form onSubmit={handleSubmit} className="login-form">
-              {/* Name Field */}
               <div className="form-group">
                 <label className="form-label">
                   <User className="w-4 h-4" />
@@ -208,7 +277,6 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* Email Field */}
               <div className="form-group">
                 <label className="form-label">
                   <Mail className="w-4 h-4" />
@@ -233,7 +301,6 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* Password Field */}
               <div className="form-group">
                 <label className="form-label">
                   <Lock className="w-4 h-4" />
@@ -266,7 +333,6 @@ export default function RegisterPage() {
                   </button>
                 </div>
                 
-                {/* Password Strength Meter */}
                 {formData.password && (
                   <div className="password-strength">
                     <div className="strength-bars">
@@ -290,7 +356,6 @@ export default function RegisterPage() {
                   </div>
                 )}
                 
-                {/* Password Requirements */}
                 <div className="password-requirements">
                   <div className={`requirement ${formData.password.length >= 8 ? 'met' : ''}`}>
                     <CheckCircle className="w-3 h-3" />
@@ -315,7 +380,6 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* Confirm Password Field */}
               <div className="form-group">
                 <label className="form-label">
                   <Lock className="w-4 h-4" />
@@ -352,19 +416,68 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* reCAPTCHA */}
               <div className="captcha-section">
-                <GoogleReCaptcha 
-                  ref={recaptchaRef}
-                  onVerify={handleRecaptchaVerify} 
-                  action="register" 
-                />
-                {recaptchaError && (
-                  <div className="input-error">Please complete the security check</div>
-                )}
+                <div className="security-info">
+                  <div className="security-item">
+                    <Shield className="w-4 h-4" />
+                    <span>Security Verification</span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Powered by Google reCAPTCHA v3
+                  </p>
+                  
+                  <div className="flex items-center gap-3 mt-3">
+                    <div className={`p-2 rounded-lg ${recaptchaToken ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                      {recaptchaToken ? (
+                        <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      ) : recaptchaLoaded ? (
+                        <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 rounded-full animate-spin" />
+                      ) : (
+                        <div className="w-5 h-5 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                        {recaptchaToken ? 'Verification Complete' : recaptchaLoaded ? 'Verifying...' : 'Loading security...'}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {recaptchaToken ? 'You have passed the security check' : recaptchaLoaded ? 'Checking if you\'re human...' : 'Loading security module...'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={refreshRecaptcha}
+                      disabled={loading || !recaptchaLoaded}
+                      className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                      aria-label="Refresh security check"
+                    >
+                      <svg
+                        className="w-4 h-4 text-gray-600 dark:text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {recaptchaError && (
+                    <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                      <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-sm">{recaptchaError}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Terms Agreement */}
               <div className="terms-agreement">
                 <label className="checkbox-label">
                   <input
@@ -381,11 +494,10 @@ export default function RegisterPage() {
                 </label>
               </div>
 
-              {/* Submit Button */}
               <button
                 type="submit"
                 className="submit-btn primary"
-                disabled={loading || !recaptchaToken}
+                disabled={loading || (!recaptchaToken && recaptchaLoaded)}
               >
                 {loading ? (
                   <>
@@ -400,16 +512,17 @@ export default function RegisterPage() {
                 )}
               </button>
 
-              {/* Login Link */}
-              <div className="login-link">
-                <span>Already have an account?</span>
-                <Link href="/auth/login" className="login-text">
+              <div className="signup-link">
+                Don't have an account?{" "}
+                <Link
+                  href="/auth/login"
+                  className="signup-text"
+                >
                   Sign in
                 </Link>
               </div>
             </form>
 
-            {/* Security Info */}
             <div className="security-info">
               <div className="security-item">
                 <Shield className="w-4 h-4 text-green-500" />
@@ -425,17 +538,18 @@ export default function RegisterPage() {
 
         {/* Right Panel - Benefits */}
         <div className="auth-branding">
-          <div className="branding-content">
+          <div>
             <div className="logo-wrapper">
               <div className="logo-icon">
-                <Sparkles className="w-8 h-8" />
+                <Sparkles className="w-6 h-6" />
               </div>
-              <h1 className="logo-text">Web Notes</h1>
+              <div>
+                <h1 className="logo-text">Web Notes</h1>
+                <p className="text-blue-100 text-sm">Secure & Smart Note Taking</p>
+              </div>
             </div>
-            
+
             <div className="benefits">
-              <h2 className="benefits-title">Why Join Web Notes?</h2>
-              
               <div className="benefit-item">
                 <div className="benefit-icon">
                   <div className="icon-bg">✨</div>
@@ -476,22 +590,8 @@ export default function RegisterPage() {
                 </div>
               </div>
             </div>
-
-            <div className="stats">
-              <div className="stat">
-                <div className="stat-number">10K+</div>
-                <div className="stat-label">Active Users</div>
-              </div>
-              <div className="stat">
-                <div className="stat-number">1M+</div>
-                <div className="stat-label">Notes Created</div>
-              </div>
-              <div className="stat">
-                <div className="stat-number">99.9%</div>
-                <div className="stat-label">Uptime</div>
-              </div>
-            </div>
           </div>
+
         </div>
       </div>
     </div>

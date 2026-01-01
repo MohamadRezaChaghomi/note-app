@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { 
   Mail, ArrowLeft, CheckCircle, AlertCircle,
-  Loader2, Shield, Send, Lock
+  Loader2, Shield, Send, Lock, Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,7 +11,7 @@ import "@/styles/auth.css";
 
 export default function ForgetPasswordPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1); // 1: Enter email, 2: Enter code, 3: Success
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,7 +44,7 @@ export default function ForgetPasswordPage() {
       const data = await res.json();
       
       if (data.ok) {
-        setStep(2); // به مرحله وارد کردن کد برو
+        setStep(2);
         setSuccessMessage("A 6-digit code has been sent to your email.");
       } else {
         setError(data.error || "Failed to send code. Please try again.");
@@ -77,12 +77,11 @@ export default function ForgetPasswordPage() {
       const data = await res.json();
       
       if (data.ok) {
-        // هدایت به صفحه reset-password با email و code
         router.push(`/auth/reset-password?email=${encodeURIComponent(email)}&code=${code}`);
       } else {
         if (data.error === "CODE_EXPIRED") {
           setError("The code has expired. Please request a new one.");
-          setStep(1); // بازگشت به مرحله اول
+          setStep(1);
         } else {
           setError(data.error === "INVALID_CODE" 
             ? "Invalid code. Please check and try again." 
@@ -104,7 +103,6 @@ export default function ForgetPasswordPage() {
 
   return (
     <div className="auth-container">
-      {/* Background Decoration */}
       <div className="auth-background">
         <div className="bg-shape shape-1" />
         <div className="bg-shape shape-2" />
@@ -112,10 +110,10 @@ export default function ForgetPasswordPage() {
         <div className="bg-shape shape-4" />
       </div>
 
-      <div className="auth-content compact">
+      <div className="auth-content">
+        {/* Left Panel - Form */}
         <div className="auth-form-container">
           <div className="form-card">
-            {/* Back Button */}
             <div className="back-button">
               <Link href="/auth/login" className="back-link">
                 <ArrowLeft className="w-4 h-4" />
@@ -123,10 +121,8 @@ export default function ForgetPasswordPage() {
               </Link>
             </div>
 
-            {/* Step 1: Enter Email */}
             {step === 1 && (
               <>
-                {/* Header */}
                 <div className="form-header">
                   <h1 className="form-title">Reset Password</h1>
                   <p className="form-subtitle">
@@ -134,7 +130,6 @@ export default function ForgetPasswordPage() {
                   </p>
                 </div>
 
-                {/* Error Message */}
                 {error && (
                   <div className="alert-message error">
                     <AlertCircle className="w-5 h-5" />
@@ -145,7 +140,6 @@ export default function ForgetPasswordPage() {
                   </div>
                 )}
 
-                {/* Form */}
                 <form onSubmit={handleSendCode} className="login-form">
                   <div className="form-group">
                     <label className="form-label">
@@ -168,7 +162,6 @@ export default function ForgetPasswordPage() {
                     </div>
                   </div>
 
-                  {/* Submit Button */}
                   <button
                     type="submit"
                     className="submit-btn primary"
@@ -188,8 +181,7 @@ export default function ForgetPasswordPage() {
                   </button>
                 </form>
 
-                {/* Security Note */}
-                <div className="security-note">
+                <div className="security-note pt-4">
                   <Shield className="w-4 h-4 text-blue-500" />
                   <p>
                     A 6-digit code will be sent to your email. 
@@ -199,10 +191,8 @@ export default function ForgetPasswordPage() {
               </>
             )}
 
-            {/* Step 2: Enter Code */}
             {step === 2 && (
               <>
-                {/* Header */}
                 <div className="form-header">
                   <h1 className="form-title">Enter Verification Code</h1>
                   <p className="form-subtitle">
@@ -210,18 +200,16 @@ export default function ForgetPasswordPage() {
                   </p>
                 </div>
 
-                {/* Success Message */}
                 {successMessage && (
-                  <div className="alert-message success">
+                  <div className="success-message">
                     <CheckCircle className="w-5 h-5" />
                     <div>
-                      <h3>Code Sent</h3>
-                      <p>{successMessage}</p>
+                      <h3 className="success-title">Code Sent</h3>
+                      <p className="success-text">{successMessage}</p>
                     </div>
                   </div>
                 )}
 
-                {/* Error Message */}
                 {error && (
                   <div className="alert-message error">
                     <AlertCircle className="w-5 h-5" />
@@ -232,7 +220,6 @@ export default function ForgetPasswordPage() {
                   </div>
                 )}
 
-                {/* Form */}
                 <form onSubmit={handleVerifyCode} className="login-form">
                   <div className="form-group">
                     <label className="form-label">
@@ -249,7 +236,7 @@ export default function ForgetPasswordPage() {
                           if (error) setError("");
                         }}
                         placeholder="123456"
-                        className="form-input text-center tracking-widest text-2xl"
+                        className="form-input text-center tracking-widest"
                         required
                         disabled={loading}
                         maxLength={6}
@@ -261,7 +248,6 @@ export default function ForgetPasswordPage() {
                     </p>
                   </div>
 
-                  {/* Submit Button */}
                   <button
                     type="submit"
                     className="submit-btn primary"
@@ -280,7 +266,6 @@ export default function ForgetPasswordPage() {
                     )}
                   </button>
 
-                  {/* Resend Code */}
                   <div className="resend-section">
                     <p className="text-sm text-gray-600">
                       Didn't receive the code?{" "}
@@ -296,7 +281,6 @@ export default function ForgetPasswordPage() {
                   </div>
                 </form>
 
-                {/* Change Email */}
                 <div className="text-center mt-4">
                   <button
                     type="button"
@@ -313,7 +297,6 @@ export default function ForgetPasswordPage() {
               </>
             )}
 
-            {/* Need Help */}
             <div className="help-section">
               <p className="help-text">
                 Need help?{" "}
@@ -323,6 +306,64 @@ export default function ForgetPasswordPage() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Right Panel - Branding */}
+        <div className="auth-branding">
+          <div>
+            <div className="logo-wrapper">
+              <div className="logo-icon">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="logo-text">Web Notes</h1>
+                <p className="text-blue-100 text-sm">Secure & Smart Note Taking</p>
+              </div>
+            </div>
+
+            <div className="benefits">
+              <div className="benefit-item">
+                <div className="benefit-icon">
+                  <div className="icon-bg">🔐</div>
+                </div>
+                <div className="benefit-content">
+                  <h3>Secure Account Recovery</h3>
+                  <p>We use industry-standard security to protect your account.</p>
+                </div>
+              </div>
+              
+              <div className="benefit-item">
+                <div className="benefit-icon">
+                  <div className="icon-bg">⚡</div>
+                </div>
+                <div className="benefit-content">
+                  <h3>Quick & Easy</h3>
+                  <p>Reset your password in just a few steps.</p>
+                </div>
+              </div>
+              
+              <div className="benefit-item">
+                <div className="benefit-icon">
+                  <div className="icon-bg">📧</div>
+                </div>
+                <div className="benefit-content">
+                  <h3>Email Verification</h3>
+                  <p>We'll send a secure code to your registered email.</p>
+                </div>
+              </div>
+              
+              <div className="benefit-item">
+                <div className="benefit-icon">
+                  <div className="icon-bg">🔄</div>
+                </div>
+                <div className="benefit-content">
+                  <h3>Instant Access</h3>
+                  <p>Get back to your notes immediately after resetting.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
