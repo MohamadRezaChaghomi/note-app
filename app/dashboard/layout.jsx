@@ -1,183 +1,77 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/ui/Sidebar";
-import ThemeToggle from "@/components/ui/ThemeToggle";
-import SessionTimeout from "@/components/ui/SessionTimeout";
-import MobileMenu from "@/components/ui/MobileMenu";
-import Breadcrumbs from "@/components/ui/Breadcrumbs";
-import QuickActions from "@/components/ui/QuickActions";
-import Notifications from "@/components/ui/Notifications";
-import SearchBar from "@/components/ui/SearchBar";
-import UserMenu from "@/components/ui/UserMenu";
-import { Toaster } from "sonner";
-import "@/styles/dashboard.css";
+import { Loader2 } from "lucide-react";
 
 export default function DashboardLayout({ children }) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
-  // Check authentication
+  // چک کردن احراز هویت
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/login");
     }
   }, [status, router]);
 
-  // Check mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth < 768) {
-        setSidebarOpen(false);
-      } else {
-        setSidebarOpen(true);
-      }
-    };
-
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  // Close sidebar when route changes on mobile
-  useEffect(() => {
-    if (isMobile) {
-      setSidebarOpen(false);
-    }
-  }, [pathname, isMobile]);
-
-  if (status === "loading") {
+  // نمایش لودینگ
+  if (status === "loading" || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
   }
 
-  if (!session) {
-    return null;
-  }
-
   return (
-    <div className="dashboard-container">
-      {/* Session Timeout */}
-      <SessionTimeout />
-      
-      {/* Mobile Menu */}
-      <MobileMenu 
-        isOpen={sidebarOpen && isMobile}
-        onClose={() => setSidebarOpen(false)}
-      />
-      
+    <div className="min-h-screen flex bg-white dark:bg-gray-900">
       {/* Sidebar */}
-      {!isMobile && (
-        <div className={`sidebar-wrapper ${sidebarOpen ? 'open' : 'closed'}`}>
-          <Sidebar />
-        </div>
-      )}
-      
+      <div className="hidden md:block w-64 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+        <Sidebar />
+      </div>
+
       {/* Main Content */}
-      <div className="main-content">
-        {/* Top Navigation */}
-        <header className="dashboard-header">
-          <div className="header-left">
-            {isMobile && (
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="mobile-menu-button"
-                aria-label="Open menu"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+      <div className="flex-1 overflow-auto">
+        <div className="p-4 md:p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Dashboard
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                Welcome back, {session.user?.name || session.user?.email}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </button>
-            )}
-            
-            <Breadcrumbs />
+              <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </button>
+              <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
+                {session.user?.name?.charAt(0) || session.user?.email?.charAt(0) || "U"}
+              </div>
+            </div>
           </div>
-          
-          <div className="header-center">
-            <SearchBar 
-              isOpen={searchOpen}
-              onToggle={() => setSearchOpen(!searchOpen)}
-            />
-          </div>
-          
-          <div className="header-right">
-            <QuickActions />
-            
-            <Notifications 
-              isOpen={notificationsOpen}
-              onToggle={() => setNotificationsOpen(!notificationsOpen)}
-            />
-            
-            <ThemeToggle />
-            
-            <UserMenu user={session.user} />
-          </div>
-        </header>
-        
-        {/* Main Content Area */}
-        <main className="dashboard-main">
-          {/* Background Effects */}
-          <div className="background-effects">
-            <div className="bg-gradient-1" />
-            <div className="bg-gradient-2" />
-            <div className="bg-gradient-3" />
-          </div>
-          
+
           {/* Page Content */}
-          <div className="page-content">
+          <div className="mt-6">
             {children}
           </div>
-        </main>
-        
-        {/* Floating Action Button */}
-        {pathname === "/dashboard/notes" && (
-          <button
-            onClick={() => router.push("/dashboard/notes/new")}
-            className="floating-action-btn"
-            aria-label="Create new note"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
-        )}
-        
-        {/* Global Toaster */}
-        <Toaster 
-          position="bottom-right"
-          toastOptions={{
-            classNames: {
-              toast: "dashboard-toast",
-              title: "toast-title",
-              description: "toast-description",
-              actionButton: "toast-action-btn",
-              cancelButton: "toast-cancel-btn",
-            },
-          }}
-        />
+        </div>
       </div>
-      
-      {/* Overlay */}
-      {(sidebarOpen && isMobile) && (
-        <div 
-          className="sidebar-overlay"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
     </div>
   );
 }

@@ -1,4 +1,9 @@
-import { registerUser, createResetTokenAndEmail, validateResetToken, resetPassword } from "@/services/auth.service";
+import { 
+  registerUser, 
+  sendResetCode, 
+  verifyResetCode, 
+  resetPassword 
+} from "@/services/auth.service";
 import { verifyCaptcha } from "@/lib/captcha";
 
 export async function register(req) {
@@ -23,32 +28,79 @@ export async function register(req) {
   }
 }
 
+// ارسال کد بازنشانی
 export async function forgetPassword(req) {
   const body = await req.json();
   const { email } = body || {};
-  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-  await createResetTokenAndEmail({ email, baseUrl });
-  return Response.json({ ok: true });
+  
+  try {
+    const result = await sendResetCode({ email });
+    
+    // همیشه ok برمی‌گردانیم حتی اگر ایمیل وجود نداشته باشد (برای امنیت)
+    return Response.json({ 
+      ok: true, 
+      message: "If an account exists with this email, a reset code has been sent."
+    });
+  } catch (error) {
+    console.error("Forget password error:", error);
+    return Response.json({ 
+      ok: false, 
+      error: "Failed to send reset code" 
+    }, { status: 500 });
+  }
 }
 
-export async function validateToken(req) {
-  const { searchParams } = new URL(req.url);
-  const email = searchParams.get("email") || "";
-  const token = searchParams.get("token") || "";
-  const ok = await validateResetToken({ email, token });
-  return Response.json({ ok });
-}
-
-export async function reset(req) {
+// تأیید کد بازنشانی
+export async function verifyCode(req) {
   const body = await req.json();
-  const { email, token, newPassword } = body || {};
-  if (!email || !token || !newPassword) return Response.json({ ok: false }, { status: 400 });
+  const { email, code } = body || {};
+  
+  if (!email || !code) {
+    return Response.json({ ok: false, error: "MISSING_FIELDS" }, { status: 400 });
+  }
 
   try {
-    await resetPassword({ email, token, newPassword });
+    const result = await verifyResetCode({ email, code });
+    return Response.json({ 
+      ok: true, 
+      email: result.email,
+      userId: result.userId 
+    });
+  } catch (error) {
+    const msg = String(error?.message || "ERROR");
+    
+    if (msg === "INVALID_CODE") {
+      return Response.json({ ok: false, error: "INVALID_CODE" }, { status: 400 });
+    }
+    
+    if (msg === "CODE_EXPIRED") {
+      return Response.json({ ok: false, error: "CODE_EXPIRED" }, { status: 400 });
+    }
+    
+    return Response.json({ ok: false, error: "VERIFICATION_FAILED" }, { status: 500 });
+  }
+}
+
+// تغییر رمز عبور با کد تأیید شده
+export async function reset(req) {
+  const body = await req.json();
+  const { email, code, newPassword } = body || {};
+  
+  if (!email || !code || !newPassword) {
+    return Response.json({ ok: false, error: "MISSING_FIELDS" }, { status: 400 });
+  }
+
+  try {
+    await resetPassword({ email, code, newPassword });
     return Response.json({ ok: true });
-  } catch {
-    return Response.json({ ok: false, error: "INVALID_TOKEN" }, { status: 400 });
+  } catch (error) {
+    const msg = String(error?.message || "ERROR");
+    
+    if (msg === "INVALID_CODE" || msg === "CODE_EXPIRED" || msg === "USER_NOT_FOUND") {
+      return Response.json({ ok: false, error: msg }, { status: 400 });
+    }
+    
+    return Response.json({ ok: false, error: "RESET_FAILED" }, { status: 500 });
   }
 }
 

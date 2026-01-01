@@ -1,8 +1,8 @@
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User.model";
-import PasswordResetToken from "@/models/PasswordResetToken.model";
-import { randomToken, sha256 } from "@/lib/crypto";
+import PasswordResetCode from "@/models/PasswordResetCode.model";
+import { randomToken, sha256, generateNumericCode } from "@/lib/crypto";
 import { sendMail } from "@/services/mail.service";
 
 export async function registerUser({ email, password, name }) {
@@ -17,58 +17,110 @@ export async function registerUser({ email, password, name }) {
   return user;
 }
 
-export async function createResetTokenAndEmail({ email, baseUrl }) {
+// تولید کد ۶ رقمی
+function generateResetCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// ارسال کد بازنشانی
+export async function sendResetCode({ email }) {
   await connectDB();
   const e = email.toLowerCase().trim();
   const user = await User.findOne({ email: e });
-  if (!user) return; // for security, don't reveal
+  if (!user) return null; // برای امنیت، کاربر وجود ندارد را اعلام نکنیم
 
-  const token = randomToken(32);
-  const tokenHash = sha256(token);
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+  // حذف کدهای قبلی برای این کاربر
+  await PasswordResetCode.deleteMany({ userId: user._id });
 
-  await PasswordResetToken.deleteMany({ userId: user._id });
-  await PasswordResetToken.create({ userId: user._id, tokenHash, expiresAt });
+  // تولید کد جدید
+  const code = generateResetCode();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 دقیقه اعتبار
 
-  const link = `${baseUrl}/auth/reset-password?token=${token}&email=${encodeURIComponent(e)}`;
+  // ذخیره کد
+  await PasswordResetCode.create({
+    userId: user._id,
+    email: e,
+    code,
+    expiresAt
+  });
 
+  // ارسال ایمیل
   await sendMail({
     to: e,
-    subject: "Reset your password",
+    subject: "کد بازنشانی رمز عبور",
     html: `
-      <div style="font-family: Arial; line-height: 1.6">
-        <h2>Password reset</h2>
-        <p>Click the link below to reset your password (valid for 30 minutes):</p>
-        <p><a href="${link}">${link}</a></p>
+      <div style="font-family: Arial; line-height: 1.6; text-align: center; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+        <h2 style="color: #333; margin-bottom: 20px;">بازنشانی رمز عبور</h2>
+        
+        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0 0 10px 0; color: #666;">کد تأیید شما:</p>
+          <div style="font-size: 32px; font-weight: bold; letter-spacing: 10px; color: #007bff; margin: 15px 0;">
+            ${code}
+          </div>
+          <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">این کد به مدت 10 دقیقه معتبر است</p>
+        </div>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; color: #777; font-size: 14px;">
+          <p style="margin: 5px 0;">اگر درخواست بازنشانی رمز عبور نکرده‌اید، این ایمیل را نادیده بگیرید.</p>
+        </div>
       </div>
     `
   });
+
+  return { email: e };
 }
 
-export async function validateResetToken({ email, token }) {
+// تأیید کد
+export async function verifyResetCode({ email, code }) {
   await connectDB();
   const e = email.toLowerCase().trim();
-  const user = await User.findOne({ email: e });
-  if (!user) return false;
+  
+  const resetCode = await PasswordResetCode.findOne({ 
+    email: e, 
+    code 
+  });
 
-  const tokenHash = sha256(token);
-  const rec = await PasswordResetToken.findOne({ userId: user._id, tokenHash });
-  if (!rec) return false;
-  if (rec.expiresAt.getTime() < Date.now()) return false;
-  return true;
+  if (!resetCode) {
+    throw new Error("INVALID_CODE");
+  }
+
+  // بررسی انقضا
+  if (resetCode.expiresAt.getTime() < Date.now()) {
+    await PasswordResetCode.deleteOne({ _id: resetCode._id });
+    throw new Error("CODE_EXPIRED");
+  }
+
+  // افزایش تعداد تلاش‌ها
+  resetCode.attempts += 1;
+  await resetCode.save();
+
+  return { 
+    valid: true, 
+    email: resetCode.email,
+    userId: resetCode.userId 
+  };
 }
 
-export async function resetPassword({ email, token, newPassword }) {
+// تغییر رمز عبور پس از تأیید کد
+export async function resetPassword({ email, code, newPassword }) {
   await connectDB();
   const e = email.toLowerCase().trim();
-  const user = await User.findOne({ email: e });
-  if (!user) throw new Error("INVALID_TOKEN");
+  
+  // ابتدا کد را تأیید می‌کنیم
+  const verification = await verifyResetCode({ email: e, code });
+  if (!verification.valid) {
+    throw new Error("INVALID_CODE");
+  }
 
-  const tokenHash = sha256(token);
-  const rec = await PasswordResetToken.findOne({ userId: user._id, tokenHash });
-  if (!rec || rec.expiresAt.getTime() < Date.now()) throw new Error("INVALID_TOKEN");
+  // تغییر رمز عبور کاربر
+  const user = await User.findById(verification.userId);
+  if (!user) throw new Error("USER_NOT_FOUND");
 
   user.passwordHash = await bcrypt.hash(newPassword, 10);
   await user.save();
-  await PasswordResetToken.deleteMany({ userId: user._id });
+
+  // حذف کد استفاده شده
+  await PasswordResetCode.deleteMany({ userId: user._id });
+
+  return { success: true };
 }

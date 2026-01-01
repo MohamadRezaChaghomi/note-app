@@ -1096,3 +1096,33 @@
     margin: 0 auto;
   }
 }
+.verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #f0fdf4;
+  color: #166534;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+.resend-section {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+/* For code input */
+.text-center {
+  text-align: center;
+}
+
+.tracking-widest {
+  letter-spacing: 0.25em;
+}
+
+.text-2xl {
+  font-size: 1.5rem;
+  line-height: 2rem;
+}
