@@ -188,7 +188,7 @@ export default function Sidebar() {
               <div className="user-email">{session.user.email}</div>
             </div>
           )}
-          <button onClick={() => signOut({ callbackUrl: "/auth/login" })} className="logout-button" title="Sign out">
+          <button onClick={() => signOut({ callbackUrl: "/" })} className="logout-button" title="Sign out">
             <LogOut className="w-4 h-4" />
           </button>
         </div>

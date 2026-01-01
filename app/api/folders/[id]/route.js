@@ -1,5 +1,11 @@
 import { requireUserId } from "@/lib/apiAuth";
-import { folderPATCH, folderDELETE } from "@/controllers/folder.controller";
+import { folderGET, folderPATCH, folderDELETE } from "@/controllers/folder.controller";
+
+export async function GET(req, { params }) {
+  const uid = await requireUserId();
+  if (!uid) return Response.json({ ok: false }, { status: 401 });
+  return folderGET(req, uid, params.id);
+}
 
 export async function PATCH(req, { params }) {
   const uid = await requireUserId();

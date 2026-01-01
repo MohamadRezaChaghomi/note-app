@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Save, X, Bold, Italic, List, Link, Image,
   Paperclip, Smile, Code, Eye, EyeOff,
-  Loader2, AlertCircle, CheckCircle
+  Loader2, AlertCircle, CheckCircle, Star, Archive
 } from "lucide-react";
 import "@/styles/editor.css";
 
@@ -14,7 +14,10 @@ export default function NewNotePage() {
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
+    description: "",
     content: "",
+    color: "",
+    folderId: null,
     tags: [],
     isStarred: false,
     isArchived: false
@@ -23,6 +26,31 @@ export default function NewNotePage() {
   const [newTag, setNewTag] = useState("");
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState(false);
+
+  const [availableTags, setAvailableTags] = useState([]);
+  const [availableFolders, setAvailableFolders] = useState([]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [tagsRes, foldersRes] = await Promise.all([
+          fetch('/api/tags'),
+          fetch('/api/folders')
+        ]);
+        if (tagsRes.ok) {
+          const tagsData = await tagsRes.json();
+          setAvailableTags((tagsData.tags || []).map(t => t.title));
+        }
+        if (foldersRes.ok) {
+          const foldersData = await foldersRes.json();
+          setAvailableFolders(foldersData.folders || []);
+        }
+      } catch (err) {
+        console.error('Error loading tags/folders:', err);
+      }
+    };
+    loadData();
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -96,10 +124,21 @@ export default function NewNotePage() {
     setErrors({});
     
     try {
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        content: formData.content,
+        color: formData.color,
+        tags: formData.tags,
+        isStarred: formData.isStarred,
+        isArchived: formData.isArchived
+      };
+      if (formData.folderId) payload.folderId = formData.folderId;
+
       const res = await fetch("/api/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       
       const data = await res.json();
@@ -108,9 +147,9 @@ export default function NewNotePage() {
         setSuccess(true);
         setTimeout(() => {
           router.push(`/dashboard/notes/${data.note._id}`);
-        }, 1500);
+        }, 800);
       } else {
-        setErrors({ submit: "Failed to save note. Please try again." });
+        setErrors({ submit: data.message || "Failed to save note. Please try again." });
       }
     } catch (error) {
       setErrors({ submit: "Network error. Please check your connection." });
@@ -310,6 +349,53 @@ export default function NewNotePage() {
 
           {/* Sidebar */}
           <div className="editor-sidebar">
+            {/* Folder & Color Section */}
+            <div className="sidebar-section">
+              <h3 className="sidebar-title">Organization</h3>
+              
+              {/* Folder */}
+              <div className="form-group">
+                <label className="form-label">Folder</label>
+                <select
+                  value={formData.folderId || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, folderId: e.target.value }))}
+                  className="form-select"
+                  disabled={saving}
+                >
+                  <option value="">No Folder</option>
+                </select>
+              </div>
+
+              {/* Color */}
+              <div className="form-group">
+                <label className="form-label">Color</label>
+                <div className="color-picker">
+                  {['', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE'].map((color) => (
+                    <button
+                      key={color || 'none'}
+                      className={`color-btn ${formData.color === color ? 'active' : ''}`}
+                      style={{ backgroundColor: color || '#e5e7eb' }}
+                      onClick={() => setFormData(prev => ({ ...prev, color }))}
+                      disabled={saving}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="sidebar-section">
+              <h3 className="sidebar-title">Description</h3>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Add a brief description..."
+                className="description-input"
+                disabled={saving}
+                rows={2}
+              />
+            </div>
+
             {/* Tags Section */}
             <div className="sidebar-section">
               <h3 className="sidebar-title">Tags</h3>

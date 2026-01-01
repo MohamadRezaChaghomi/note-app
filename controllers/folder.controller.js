@@ -1,8 +1,14 @@
-import { listFolders, createFolder, updateFolder, deleteFolder } from "@/services/folder.service";
+import { listFolders, createFolder, updateFolder, deleteFolder, getFolder } from "@/services/folder.service";
 
 export async function foldersGET(_req, userId) {
   const folders = await listFolders(userId);
   return Response.json({ ok: true, folders });
+}
+
+export async function folderGET(_req, userId, id) {
+  const folder = await getFolder(userId, id);
+  if (!folder) return Response.json({ ok: false }, { status: 404 });
+  return Response.json({ ok: true, folder });
 }
 
 export async function foldersPOST(req, userId) {

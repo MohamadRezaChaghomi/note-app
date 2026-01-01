@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { Settings, Bell, Shield, Palette, User, Save, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import "@/styles/settings.css";
@@ -262,6 +262,9 @@ export default function SettingsPage() {
             <button onClick={handleSave} className="btn-save">
               <Save className="w-4 h-4" />
               Save Changes
+            </button>
+            <button onClick={() => signOut({ callbackUrl: '/' })} className="btn-logout">
+              خروج از حساب
             </button>
             {saved && <span className="save-message">✓ Settings saved</span>}
           </div>
