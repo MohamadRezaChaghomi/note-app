@@ -130,13 +130,15 @@ export default function LoginPage() {
       } else {
         // Login failed
         let errorMsg = "Invalid email, password, or security check.";
-        
-        if (res.error === "CredentialsSignin") {
-          errorMsg = "Invalid email or password.";
-        } else if (res.error?.includes("recaptcha")) {
-          errorMsg = "Security verification failed. Please try again.";
+
+        if (res.error === "CredentialsSignin" || res.error === "INVALID_CREDENTIALS") {
+          errorMsg = "ایمیل یا رمز عبور اشتباه است.";
+        } else if (res.error === "USE_GOOGLE") {
+          errorMsg = "این حساب با گوگل ساخته شده؛ لطفاً از گزینه 'Continue with Google' استفاده کنید.";
+        } else if (res.error === "RECAPTCHA_FAILED" || (res.error && res.error.toLowerCase().includes("recaptcha"))) {
+          errorMsg = "تأیید امنیتی ناموفق بود. لطفا صفحه را تازه کنید و دوباره تلاش کنید.";
         }
-        
+
         setError(errorMsg);
         // Refresh reCAPTCHA on failed attempt
         setRecaptchaToken("");

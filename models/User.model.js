@@ -74,7 +74,6 @@ const userSchema = new mongoose.Schema({
 });
 
 // Indexes
-userSchema.index({ email: 1 });
 userSchema.index({ resetCodeExpires: 1 }, { expireAfterSeconds: 0 });
 
 const User = mongoose.models.User || mongoose.model("User", userSchema);

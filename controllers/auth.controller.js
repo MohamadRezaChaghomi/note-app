@@ -121,5 +121,27 @@ export async function logout() {
 
 // Legacy function (for token-based reset)
 export async function validateToken(req) {
-  return Response.json({ ok: false, error: "INVALID_TOKEN" });
+  try {
+    const url = new URL(req.url);
+    const email = url.searchParams.get("email");
+    const code = url.searchParams.get("token") || url.searchParams.get("code");
+
+    if (!email || !code) {
+      return Response.json({ ok: false, error: "MISSING_FIELDS" }, { status: 400 });
+    }
+
+    // Verify code via auth service
+    await authService.verifyResetCode(email, code);
+
+    return Response.json({ ok: true });
+  } catch (error) {
+    console.error("Validate token error:", error.message || error);
+    if (error.message === "INVALID_CODE") {
+      return Response.json({ ok: false, error: "INVALID_CODE" }, { status: 400 });
+    }
+    if (error.message === "CODE_EXPIRED") {
+      return Response.json({ ok: false, error: "CODE_EXPIRED" }, { status: 400 });
+    }
+    return Response.json({ ok: false, error: "VALIDATION_FAILED" }, { status: 500 });
+  }
 }

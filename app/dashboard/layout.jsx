@@ -1,77 +1,102 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/ui/Sidebar";
-import { Loader2 } from "lucide-react";
+import { Loader2, Bell, Search, LogOut, Settings, Menu, X } from "lucide-react";
+import "@/styles/dashboard.css";
+import "@/styles/sidebar.css";
 
 export default function DashboardLayout({ children }) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // چک کردن احراز هویت
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/login");
     }
   }, [status, router]);
 
-  // نمایش لودینگ
   if (status === "loading" || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-blue-600" />
+          <p className="text-gray-600 dark:text-gray-400">Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex bg-white dark:bg-gray-900">
+    <div className="dashboard-container">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* Sidebar */}
-      <div className="hidden md:block w-64 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+      <aside className={`dashboard-sidebar ${sidebarOpen ? "open" : ""}`}>
         <Sidebar />
-      </div>
+      </aside>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="p-4 md:p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Dashboard
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Welcome back, {session.user?.name || session.user?.email}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </button>
-              <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-              </button>
-              <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium">
-                {session.user?.name?.charAt(0) || session.user?.email?.charAt(0) || "U"}
-              </div>
+      <main className="dashboard-main">
+        {/* Header */}
+        <header className="dashboard-header">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+            <div className="flex-1">
+              <h1 className="dashboard-title">Welcome back, {session.user?.name?.split(" ")[0] || "User"}! 👋</h1>
             </div>
           </div>
 
-          {/* Page Content */}
-          <div className="mt-6">
-            {children}
+          <div className="dashboard-header-actions">
+            {/* Search */}
+            <div className="dashboard-search">
+              <Search className="w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search notes, folders..."
+                className="dashboard-search-input"
+              />
+            </div>
+
+            {/* Actions */}
+            <button className="dashboard-icon-btn" title="Notifications">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
+
+            <button className="dashboard-icon-btn" title="Settings" onClick={() => router.push('/dashboard/settings')}>
+              <Settings className="w-5 h-5" />
+            </button>
+
+            {/* User Avatar Dropdown */}
+            <div className="dashboard-user-menu">
+              <button className="dashboard-avatar">
+                {session.user?.image ? (
+                  <img src={session.user.image} alt={session.user.name} className="w-full h-full rounded-full" />
+                ) : (
+                  <span>{session.user?.name?.charAt(0) || session.user?.email?.charAt(0) || "U"}</span>
+                )}
+              </button>
+            </div>
           </div>
+        </header>
+
+        {/* Content Area */}
+        <div className="dashboard-content">
+          {children}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

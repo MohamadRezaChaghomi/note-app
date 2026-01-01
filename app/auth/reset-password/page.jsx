@@ -13,7 +13,7 @@ export default function ResetPasswordPage() {
   const router = useRouter();
 
   const email = sp.get("email") || "";
-  const token = sp.get("token") || "";
+  const code = sp.get("code") || sp.get("token") || "";
 
   const [valid, setValid] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -29,10 +29,10 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     async function check() {
-      if (email && token) {
+      if (email && code) {
         try {
           const res = await fetch(
-            `/api/auth/validate-reset-token?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`
+            `/api/auth/validate-reset-token?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`
           );
           const data = await res.json();
           setValid(!!data.ok);
@@ -101,7 +101,7 @@ export default function ResetPasswordPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           email, 
-          token, 
+          code, 
           newPassword: formData.newPassword 
         })
       });

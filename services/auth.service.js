@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { recaptchaService } from "@/lib/recaptcha";
 import { generateNumericCode } from "@/lib/crypto";
 import { sendMail } from "@/services/mail.service";
+import { connectDB } from "@/lib/db";
 
 class AuthService {
   constructor() {
@@ -14,6 +15,7 @@ class AuthService {
    */
   async registerUser(userData) {
     try {
+      await connectDB();
       const { email, password, name, recaptchaToken } = userData;
 
       // Verify reCAPTCHA
@@ -58,6 +60,7 @@ class AuthService {
    */
   async sendResetCode(email) {
     try {
+      await connectDB();
       const user = await User.findOne({ email });
       if (!user) {
         // Don't reveal if user exists (security)
@@ -68,11 +71,9 @@ class AuthService {
       const code = generateNumericCode(6);
       const expires = new Date(Date.now() + 10 * 60 * 1000);
 
-      // Hash and save code
+      // Hash and save code (use update to avoid validation on the document)
       const hashedCode = await bcrypt.hash(code, this.saltRounds);
-      user.resetCode = hashedCode;
-      user.resetCodeExpires = expires;
-      await user.save();
+      await User.updateOne({ _id: user._id }, { $set: { resetCode: hashedCode, resetCodeExpires: expires } });
 
       // Send email
       await sendMail({
@@ -98,6 +99,7 @@ class AuthService {
    */
   async verifyResetCode(email, code) {
     try {
+      await connectDB();
       const user = await User.findOne({ email }).select("+resetCode +resetCodeExpires");
       
       if (!user || !user.resetCode || !user.resetCodeExpires) {
@@ -134,6 +136,7 @@ class AuthService {
    */
   async resetPassword(email, code, newPassword) {
     try {
+      await connectDB();
       // Verify the code
       const verification = await this.verifyResetCode(email, code);
       
@@ -184,6 +187,7 @@ class AuthService {
    * Get user by email
    */
   async getUserByEmail(email) {
+    await connectDB();
     return User.findOne({ email });
   }
 }

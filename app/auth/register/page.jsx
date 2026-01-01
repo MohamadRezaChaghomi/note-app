@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import "@/styles/auth.css";
+import ErrorModal from "@/components/ui/ErrorModal";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function RegisterPage() {
   const [recaptchaToken, setRecaptchaToken] = useState("");
   const [recaptchaError, setRecaptchaError] = useState("");
   const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
 
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
@@ -185,13 +187,15 @@ export default function RegisterPage() {
           router.push("/auth/login?registered=1");
         }, 1500);
       } else {
-        setErrors({ 
-          submit: data.error === "EMAIL_EXISTS" 
-            ? "This email is already registered. Please use a different email or login." 
-            : data.error === "RECAPTCHA_FAILED"
-            ? "Security verification failed. Please try again."
-            : "Registration failed. Please try again." 
-        });
+        const msg = data.error === "EMAIL_EXISTS"
+          ? "این ایمیل قبلا ثبت شده است. لطفاً از ایمیل دیگری استفاده کنید یا وارد شوید."
+          : data.error === "RECAPTCHA_FAILED"
+            ? "تأیید امنیتی ناموفق بود. لطفا دوباره تلاش کنید."
+            : "ثبت‌نام ناموفق بود. لطفا دوباره تلاش کنید.";
+
+        setErrors({ submit: msg });
+        // open modal for prominent errors
+        setShowErrorModal(true);
       }
     } catch (error) {
       setErrors({ submit: "Network error. Please check your connection." });
@@ -251,6 +255,8 @@ export default function RegisterPage() {
                 </div>
               </div>
             )}
+
+            <ErrorModal open={!!showErrorModal} title="خطای ثبت‌نام" message={errors.submit} onClose={() => setShowErrorModal(false)} />
 
             <form onSubmit={handleSubmit} className="login-form">
               <div className="form-group">

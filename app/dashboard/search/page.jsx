@@ -7,7 +7,7 @@ import {
   Star, Archive, Eye, ExternalLink
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import "@/styles/search.css";
+import "@/styles/search-page.css";
 
 export default function SearchPage() {
   const router = useRouter();
