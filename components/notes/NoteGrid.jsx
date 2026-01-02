@@ -1,7 +1,7 @@
 "use client";
 
 import NoteCard from "./NoteCard";
-
+import "@/styles/components/notes.css";
 export default function NoteGrid({
   notes,
   selectedNotes = [],

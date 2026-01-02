@@ -2,7 +2,7 @@
 
 import { X, Filter, Calendar, Tag, Folder, Flag } from "lucide-react";
 import { useState } from "react";
-
+import "@/styles/components/notes.css";
 export default function FilterPanel({ filters, onFilterChange, onClear }) {
   const [localFilters, setLocalFilters] = useState(filters);
 

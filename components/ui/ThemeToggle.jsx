@@ -1,80 +1,66 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { Sun, Moon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Sun, Moon, Monitor, Sparkles } from "lucide-react";
+import "@/styles/theme-toggle.css";
 
 export default function ThemeToggle() {
   const { theme, setTheme, systemTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [ripple, setRipple] = useState(false);
+  const [isDark, setIsDark] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const handleThemeChange = (newTheme) => {
-    setRipple(true);
+  useEffect(() => {
+    if (theme) {
+      const currentTheme = theme === "system" ? systemTheme : theme;
+      setIsDark(currentTheme === "dark");
+      
+      if (currentTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
+  }, [theme, systemTheme]);
+
+  const toggleTheme = () => {
+    const newTheme = isDark ? "light" : "dark";
     setTheme(newTheme);
     
-    // Add animation class
-    document.documentElement.classList.add('theme-transition');
-    setTimeout(() => {
-      document.documentElement.classList.remove('theme-transition');
-    }, 300);
-    
-    // Reset ripple effect
-    setTimeout(() => setRipple(false), 600);
+    if (newTheme === "dark") {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("webnotes-theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("webnotes-theme", "light");
+    }
   };
 
   if (!mounted) {
-    return (
-      <div className="theme-toggle skeleton" />
-    );
+    return <div className="theme-toggle-skeleton" />;
   }
 
-  const currentTheme = theme === "system" ? systemTheme : theme;
-  const themes = [
-    { id: "light", label: "Light", icon: Sun, description: "Bright theme" },
-    { id: "dark", label: "Dark", icon: Moon, description: "Dark theme" },
-    { id: "system", label: "System", icon: Monitor, description: "Follow system" },
-  ];
-
   return (
-    <div className="theme-toggle">
-      {/* Ripple Effect */}
-      {ripple && (
-        <div className="theme-ripple" />
-      )}
-
-      <div className="theme-selector">
-        {themes.map((t) => {
-          const Icon = t.icon;
-          const isActive = 
-            (t.id === "system" && theme === "system") ||
-            (t.id !== "system" && theme === t.id);
-          
-          return (
-            <button
-              key={t.id}
-              onClick={() => handleThemeChange(t.id)}
-              className={`theme-option ${isActive ? 'active' : ''}`}
-              aria-label={`Switch to ${t.label} theme`}
-              title={t.description}
-            >
-              <div className="theme-icon">
-                <Icon className="w-4 h-4" />
-              </div>
-              <div className="theme-info">
-                <span className="theme-label">{t.label}</span>
-                {isActive && (
-                  <div className="active-indicator">
-                    <Sparkles className="w-3 h-3" />
-                  </div>
-                )}
-              </div>
-            </button>
-          );
-        })}
+    <button
+      onClick={toggleTheme}
+      className="theme-toggle"
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      title={isDark ? "روشن کنید" : "تیره کنید"}
+    >
+      <div className="theme-toggle-content">
+        <Sun 
+          size={18}
+          className={`theme-icon theme-icon-sun ${isDark ? 'hidden' : 'visible'}`}
+        />
+        <Moon 
+          size={18}
+          className={`theme-icon theme-icon-moon ${!isDark ? 'hidden' : 'visible'}`}
+        />
       </div>
-    </div>
+    </button>
   );
 }

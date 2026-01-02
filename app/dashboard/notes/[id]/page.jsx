@@ -34,16 +34,22 @@ export default function NoteDetailPage() {
       setError(null);
       
       const res = await fetch(`/api/notes/${id}`);
-      if (!res.ok) throw new Error("Note not found");
-      
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data?.message || `Failed to load note (${res.status})`;
+        throw new Error(msg);
+      }
       setNote(data.note);
       
-      // Load version history
-      const versionsRes = await fetch(`/api/notes/${id}/versions`);
-      if (versionsRes.ok) {
-        const versionsData = await versionsRes.json();
-        setVersions(versionsData.versions || []);
+      // Load version history (optional endpoint)
+      try {
+        const versionsRes = await fetch(`/api/notes/${id}/versions`);
+        if (versionsRes.ok) {
+          const versionsData = await versionsRes.json();
+          setVersions(versionsData.versions || []);
+        }
+      } catch (e) {
+        // Versions endpoint is optional, continue without it
       }
       
     } catch (err) {
@@ -69,7 +75,10 @@ export default function NoteDetailPage() {
         body: JSON.stringify(patch)
       });
       
-      if (!res.ok) throw new Error("Failed to save");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to save: ${res.status}`);
+      }
       
       const data = await res.json();
       setNote(data.note);
@@ -77,7 +86,8 @@ export default function NoteDetailPage() {
       toast.success("Note saved successfully");
       
     } catch (err) {
-      toast.error("Failed to save note");
+      console.error("Save error:", err);
+      toast.error(err.message || "Failed to save note");
     } finally {
       setSaving(false);
     }
@@ -190,14 +200,12 @@ export default function NoteDetailPage() {
         <div className="error-state">
           <AlertCircle className="w-12 h-12 text-red-500" />
           <h3>Note Not Found</h3>
-          <p>The requested note could not be found or you don't have permission to view it.</p>
-          <button
-            onClick={() => router.push("/dashboard/notes")}
-            className="back-button"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Back to Notes
-          </button>
+          <p>{error || "The requested note could not be found or you don't have permission to view it."}</p>
+          <div className="mt-4 flex gap-2">
+            <button onClick={() => router.push('/dashboard/notes')} className="px-3 py-2 rounded border">Back to Notes</button>
+            <button onClick={() => router.push('/dashboard/notes/new')} className="px-3 py-2 rounded bg-primary text-white">Create New Note</button>
+            <button onClick={() => { setLoading(true); setError(null); loadNote(); }} className="px-3 py-2 rounded border">Retry</button>
+          </div>
         </div>
       </div>
     );

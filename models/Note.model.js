@@ -6,9 +6,8 @@ const NoteSchema = new mongoose.Schema(
     title: { type: String, required: true },
     description: { type: String, default: "" },
     content: { type: String, default: "" },
-    color: { type: String, default: "" },
-    folderId: { type: mongoose.Schema.Types.ObjectId, ref: "Folder", default: null },
-    tagIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Tag" }],
+    color: { type: String, default: "#FFFFFF" },
+    folderId: { type: mongoose.Schema.Types.ObjectId, ref: "Folder", required: true },
 
     isArchived: { type: Boolean, default: false },
     isTrashed: { type: Boolean, default: false },

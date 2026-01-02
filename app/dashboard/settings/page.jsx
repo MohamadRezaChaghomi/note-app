@@ -264,7 +264,7 @@ export default function SettingsPage() {
               Save Changes
             </button>
             <button onClick={() => signOut({ callbackUrl: '/' })} className="btn-logout">
-              خروج از حساب
+             Log Out
             </button>
             {saved && <span className="save-message">✓ Settings saved</span>}
           </div>

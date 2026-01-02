@@ -63,6 +63,12 @@ export default function NotesPage() {
       
       const data = await res.json();
       setNotes(data.notes || []);
+      // Debug: log loaded note ids to help trace 404 link issues
+      try {
+        console.log('Loaded notes IDs:', (data.notes || []).map(n => n._id));
+      } catch (e) {
+        console.log('Loaded notes (no ids)');
+      }
       setPagination(data.pagination);
       
     } catch (err) {
@@ -90,19 +96,34 @@ export default function NotesPage() {
 
   const handleNoteAction = async (noteId, action, data = {}) => {
     try {
+      if (action === 'delete') {
+        if (!confirm('Are you sure you want to delete this note?')) return;
+      }
+
       const res = await fetch(`/api/notes/${noteId}`, {
         method: action === 'delete' ? 'DELETE' : 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: action === 'delete' ? undefined : JSON.stringify(data)
       });
-      
-      if (res.ok) {
-        toast.success(getSuccessMessage(action));
-        loadNotes(pagination?.page || 1);
-        setSelectedNotes(prev => prev.filter(id => id !== noteId));
+
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(body.message || `Action failed (${res.status})`);
+        return;
       }
+
+      toast.success(getSuccessMessage(action));
+      // optimistic update: remove or refresh
+      if (action === 'delete') {
+        setNotes(prev => prev.filter(n => n._id !== noteId));
+      } else {
+        // refresh list
+        loadNotes(pagination?.page || 1);
+      }
+      setSelectedNotes(prev => prev.filter(id => id !== noteId));
     } catch (err) {
-      toast.error('Action failed');
+      console.error('Note action error:', err);
+      toast.error(err.message || 'Action failed');
     }
   };
 

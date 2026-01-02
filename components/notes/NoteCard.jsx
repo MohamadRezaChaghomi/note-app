@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
+import "@/styles/components/notes.css";
 export default function NoteCard({ 
   note, 
   selected = false,

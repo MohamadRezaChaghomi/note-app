@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -8,7 +9,7 @@ import {
 } from "lucide-react";
 import "@/styles/auth.css";
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const sp = useSearchParams();
   const router = useRouter();
 
@@ -372,4 +373,13 @@ export default function ResetPasswordPage() {
       </div>
     </div>
   );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense>
+      <ResetPasswordContent />
+    </Suspense>
+  );
+}
 }

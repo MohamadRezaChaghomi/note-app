@@ -1,6 +1,5 @@
 "use client";
 
-import { Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -33,7 +32,7 @@ const executeRecaptcha = async (action = 'login') => {
   }
 };
 
-function LoginContent() {
+export default function LoginContent() {
   const router = useRouter();
   const sp = useSearchParams();
   const timedOut = sp.get("timeout") === "1";
@@ -242,7 +241,7 @@ function LoginContent() {
             </div>
 
             <div className="form-header">
-              <h1 className="form-title">Welcome Back!</h1>
+              <h1 className="form-title">!خوش برگشتی مشتی</h1>
               <p className="form-subtitle">Sign in to your account to continue</p>
             </div>
 
@@ -425,13 +424,5 @@ function LoginContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense>
-      <LoginContent />
-    </Suspense>
   );
 }

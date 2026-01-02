@@ -6,69 +6,73 @@ import { Toaster } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState, useEffect } from "react";
+import Script from "next/script";
 
 export default function Providers({ children }) {
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 5 * 60 * 1000, // 5 minutes
-        gcTime: 10 * 60 * 1000, // 10 minutes
-        retry: 1,
-        refetchOnWindowFocus: false,
-      },
-    },
-  }));
-
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 5 * 60 * 1000,
+            gcTime: 10 * 60 * 1000,
+            retry: 1,
+            refetchOnWindowFocus: false,
+          },
+        },
+      })
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SessionProvider
-        refetchInterval={10 * 60} // 10 minutes
-        refetchOnWindowFocus={true}
-      >
+      <SessionProvider refetchInterval={10 * 60}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
-          disableTransitionOnChange={false}
-          themes={["light", "dark", "system"]}
           storageKey="webnotes-theme"
+          disableTransitionOnChange={false}
         >
           <Toaster
             position="bottom-left"
+            duration={4000}
+            closeButton
+            richColors
             toastOptions={{
               classNames: {
-                toast: "group toast group-[.toaster]:bg-white group-[.toaster]:text-gray-900 group-[.toaster]:border-gray-200 group-[.toaster]:shadow-xl dark:group-[.toaster]:bg-gray-900 dark:group-[.toaster]:text-gray-100 dark:group-[.toaster]:border-gray-700 rounded-2xl",
-                description: "group-[.toast]:text-gray-600 dark:group-[.toast]:text-gray-400",
-                actionButton: "group-[.toast]:bg-blue-600 group-[.toast]:text-white rounded-lg hover:bg-blue-700",
-                cancelButton: "group-[.toast]:bg-gray-100 group-[.toast]:text-gray-600 dark:group-[.toast]:bg-gray-800 dark:group-[.toast]:text-gray-400 rounded-lg",
+                toast:
+                  "rounded-xl border bg-background text-foreground shadow-lg",
+                description: "text-muted-foreground",
+                actionButton:
+                  "bg-blue-600 text-white hover:bg-blue-700 rounded-lg",
+                cancelButton:
+                  "bg-muted text-muted-foreground rounded-lg",
               },
             }}
-            expand={false}
-            richColors
-            closeButton
-            duration={4000}
           />
-          
+
           {children}
+
+          {/* Google reCAPTCHA v3 Script */}
+          {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+            <Script
+              src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
+              strategy="afterInteractive"
+              onLoad={() => {
+                if (typeof window !== 'undefined' && window.grecaptcha) {
+                  console.log('✅ reCAPTCHA loaded successfully');
+                }
+              }}
+              onError={() => {
+                console.error('❌ Failed to load reCAPTCHA');
+              }}
+            />
+          )}
         </ThemeProvider>
       </SessionProvider>
-      
+
       {process.env.NODE_ENV === "development" && (
-        <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />
+        <ReactQueryDevtools initialIsOpen={false} />
       )}
     </QueryClientProvider>
   );

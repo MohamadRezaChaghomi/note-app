@@ -2,7 +2,7 @@
 
 import { Star, Archive, Trash2, X, MoreVertical } from "lucide-react";
 import { useState } from "react";
-
+import "@/styles/components/notes.css";
 export default function BulkActions({
   count,
   onStar,

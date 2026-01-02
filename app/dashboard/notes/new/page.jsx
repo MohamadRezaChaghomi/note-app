@@ -2,115 +2,48 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Save, X, Bold, Italic, List, Link, Image,
-  Paperclip, Smile, Code, Eye, EyeOff,
-  Loader2, AlertCircle, CheckCircle, Star, Archive
-} from "lucide-react";
-import "@/styles/editor.css";
-
+import { Save, X, AlertCircle } from "lucide-react";
+import "@/styles/new-note.css";
 export default function NewNotePage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [folders, setFolders] = useState([]);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     content: "",
-    color: "",
-    folderId: null,
-    tags: [],
-    isStarred: false,
-    isArchived: false
+    color: "#FFFFFF",
+    folderId: ""
   });
-  const [preview, setPreview] = useState(false);
-  const [newTag, setNewTag] = useState("");
   const [errors, setErrors] = useState({});
-  const [success, setSuccess] = useState(false);
-
-  const [availableTags, setAvailableTags] = useState([]);
-  const [availableFolders, setAvailableFolders] = useState([]);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [tagsRes, foldersRes] = await Promise.all([
-          fetch('/api/tags'),
-          fetch('/api/folders')
-        ]);
-        if (tagsRes.ok) {
-          const tagsData = await tagsRes.json();
-          setAvailableTags((tagsData.tags || []).map(t => t.title));
-        }
-        if (foldersRes.ok) {
-          const foldersData = await foldersRes.json();
-          setAvailableFolders(foldersData.folders || []);
-        }
-      } catch (err) {
-        console.error('Error loading tags/folders:', err);
-      }
-    };
-    loadData();
+    loadFolders();
   }, []);
+
+  const loadFolders = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/folders");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Failed to load folders (${res.status})`);
+      }
+      setFolders(data.folders || []);
+    } catch (err) {
+      console.error("Error loading folders:", err);
+      setErrors({ load: "Error loading folders" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const validateForm = () => {
     const newErrors = {};
     if (!formData.title.trim()) newErrors.title = "Title is required";
-    if (!formData.content.trim()) newErrors.content = "Content is required";
+    if (!formData.folderId) newErrors.folderId = "Folder selection is required";
     return newErrors;
-  };
-
-  const handleAddTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        tags: [...prev.tags, newTag.trim()]
-      }));
-      setNewTag("");
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
-    }));
-  };
-
-  const handleFormat = (format) => {
-    const textarea = document.querySelector(".editor-textarea");
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = formData.content.substring(start, end);
-    let newText = formData.content;
-    
-    switch(format) {
-      case 'bold':
-        newText = formData.content.substring(0, start) + 
-                 `**${selectedText}**` + 
-                 formData.content.substring(end);
-        break;
-      case 'italic':
-        newText = formData.content.substring(0, start) + 
-                 `*${selectedText}*` + 
-                 formData.content.substring(end);
-        break;
-      case 'list':
-        newText = formData.content.substring(0, start) + 
-                 `\n- ${selectedText}` + 
-                 formData.content.substring(end);
-        break;
-      case 'code':
-        newText = formData.content.substring(0, start) + 
-                 `\`\`\`\n${selectedText}\n\`\`\`` + 
-                 formData.content.substring(end);
-        break;
-    }
-    
-    setFormData(prev => ({ ...prev, content: newText }));
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + format.length, end + format.length);
-    }, 0);
   };
 
   const handleSave = async () => {
@@ -122,45 +55,43 @@ export default function NewNotePage() {
 
     setSaving(true);
     setErrors({});
-    
     try {
       const payload = {
-        title: formData.title,
-        description: formData.description,
-        content: formData.content,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        content: formData.content?.trim() || "",
         color: formData.color,
-        tags: formData.tags,
-        isStarred: formData.isStarred,
-        isArchived: formData.isArchived
+        folderId: formData.folderId
       };
-      if (formData.folderId) payload.folderId = formData.folderId;
 
       const res = await fetch("/api/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      
-      const data = await res.json();
-      
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErrors({ submit: data.message || `Error: ${res.status}` });
+        return;
+      }
+
       if (data?.note?._id) {
-        setSuccess(true);
-        setTimeout(() => {
-          router.push(`/dashboard/notes/${data.note._id}`);
-        }, 800);
+        router.push(`/dashboard/notes/${data.note._id}`);
       } else {
-        setErrors({ submit: data.message || "Failed to save note. Please try again." });
+        setErrors({ submit: "Failed to save note" });
       }
     } catch (error) {
-      setErrors({ submit: "Network error. Please check your connection." });
+      console.error("Save error:", error);
+      setErrors({ submit: "Network error" });
     } finally {
       setSaving(false);
     }
   };
 
   const handleCancel = () => {
-    if (formData.title || formData.content) {
-      if (confirm("Are you sure you want to discard this note?")) {
+    if (formData.title || formData.description) {
+      if (confirm("Are you sure?")) {
         router.push("/dashboard/notes");
       }
     } else {
@@ -168,395 +99,108 @@ export default function NewNotePage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="editor-container">
+        <div className="loading">Loading...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="editor-container">
-      {/* Header */}
-      <div className="editor-header">
-        <div className="header-content">
-          <div>
-            <h1 className="editor-title">Create New Note</h1>
-            <p className="editor-subtitle">
-              Write your thoughts, ideas, or important information
-            </p>
-          </div>
-          <div className="header-actions">
-            <button
-              onClick={handleCancel}
-              className="cancel-btn"
-              disabled={saving}
-            >
-              <X className="w-5 h-5" />
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              className="save-btn"
-              disabled={saving}
-            >
-              {saving ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Save className="w-5 h-5" />
-              )}
-              {saving ? "Saving..." : "Save Note"}
-            </button>
-          </div>
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-semibold">New Note</h1>
+        <div className="flex gap-2">
+          <button onClick={handleCancel} className="px-3 py-2 rounded border text-sm" disabled={saving}>
+            Cancel
+          </button>
+          <button onClick={handleSave} className="px-4 py-2 rounded bg-primary text-white text-sm" disabled={saving}>
+            {saving ? "Saving..." : "Save"}
+          </button>
         </div>
-
-        {/* Success Message */}
-        {success && (
-          <div className="success-message">
-            <CheckCircle className="w-5 h-5" />
-            <span>Note saved successfully! Redirecting...</span>
-          </div>
-        )}
-
-        {/* Error Messages */}
-        {Object.keys(errors).length > 0 && (
-          <div className="error-messages">
-            {Object.values(errors).map((error, index) => (
-              <div key={index} className="error-message">
-                <AlertCircle className="w-4 h-4" />
-                <span>{error}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Editor Main */}
-      <div className="editor-main">
-        {/* Title Section */}
-        <div className="title-section">
-          <input
-            type="text"
-            value={formData.title}
-            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-            placeholder="Note title..."
-            className={`title-input ${errors.title ? 'error' : ''}`}
-            disabled={saving}
-          />
-          {errors.title && (
-            <div className="input-error">{errors.title}</div>
-          )}
-        </div>
-
-        {/* Toolbar */}
-        <div className="editor-toolbar">
-          <div className="toolbar-left">
-            <div className="format-buttons">
-              <button
-                onClick={() => handleFormat('bold')}
-                className="format-btn"
-                title="Bold"
-                disabled={saving}
-              >
-                <Bold className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleFormat('italic')}
-                className="format-btn"
-                title="Italic"
-                disabled={saving}
-              >
-                <Italic className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleFormat('list')}
-                className="format-btn"
-                title="List"
-                disabled={saving}
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleFormat('code')}
-                className="format-btn"
-                title="Code Block"
-                disabled={saving}
-              >
-                <Code className="w-4 h-4" />
-              </button>
-              <button className="format-btn" title="Insert Link" disabled={saving}>
-                <Link className="w-4 h-4" />
-              </button>
-              <button className="format-btn" title="Insert Image" disabled={saving}>
-                <Image className="w-4 h-4" />
-              </button>
-              <button className="format-btn" title="Attach File" disabled={saving}>
-                <Paperclip className="w-4 h-4" />
-              </button>
-              <button className="format-btn" title="Emoji" disabled={saving}>
-                <Smile className="w-4 h-4" />
-              </button>
+      {Object.keys(errors).length > 0 && (
+        <div className="mb-4">
+          {Object.values(errors).map((error, idx) => (
+            <div key={idx} className="flex items-center gap-2 bg-red-50 border border-red-100 text-red-700 px-3 py-2 rounded mb-2">
+              <AlertCircle className="w-4 h-4" />
+              <span>{error}</span>
             </div>
-          </div>
-          <div className="toolbar-right">
-            <button
-              onClick={() => setPreview(!preview)}
-              className="preview-btn"
-              disabled={saving}
-            >
-              {preview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              {preview ? "Edit" : "Preview"}
-            </button>
-          </div>
+          ))}
         </div>
+      )}
 
-        {/* Editor Content */}
-        <div className="editor-content">
-          {preview ? (
-            <div className="preview-panel">
-              <div className="preview-content">
-                <h1 className="preview-title">{formData.title || "Untitled"}</h1>
-                <div className="preview-body">
-                  {formData.content.split('\n').map((line, index) => {
-                    if (line.startsWith('# ')) {
-                      return <h1 key={index} className="preview-h1">{line.substring(2)}</h1>;
-                    } else if (line.startsWith('## ')) {
-                      return <h2 key={index} className="preview-h2">{line.substring(3)}</h2>;
-                    } else if (line.startsWith('### ')) {
-                      return <h3 key={index} className="preview-h3">{line.substring(4)}</h3>;
-                    } else if (line.startsWith('**') && line.endsWith('**')) {
-                      return <strong key={index} className="preview-bold">{line.substring(2, line.length - 2)}</strong>;
-                    } else if (line.startsWith('*') && line.endsWith('*') && !line.startsWith('**')) {
-                      return <em key={index} className="preview-italic">{line.substring(1, line.length - 1)}</em>;
-                    } else if (line.startsWith('- ')) {
-                      return <li key={index} className="preview-list-item">{line.substring(2)}</li>;
-                    } else if (line.startsWith('```')) {
-                      return <pre key={index} className="preview-code">{line.substring(3)}</pre>;
-                    }
-                    return <p key={index} className="preview-paragraph">{line}</p>;
-                  })}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className={`editor-panel ${errors.content ? 'error' : ''}`}>
-              <textarea
-                value={formData.content}
-                onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                placeholder="Start typing your note here..."
-                className="editor-textarea"
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 bg-white border rounded-lg p-6 shadow-sm">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Title *</label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Note title..."
+                className={`w-full border rounded px-3 py-2 ${errors.title ? 'border-red-400' : 'border-gray-200'}`}
                 disabled={saving}
-                rows={20}
               />
-              {errors.content && (
-                <div className="textarea-error">{errors.content}</div>
-              )}
-            </div>
-          )}
-
-          {/* Sidebar */}
-          <div className="editor-sidebar">
-            {/* Folder & Color Section */}
-            <div className="sidebar-section">
-              <h3 className="sidebar-title">Organization</h3>
-              
-              {/* Folder */}
-              <div className="form-group">
-                <label className="form-label">Folder</label>
-                <select
-                  value={formData.folderId || ""}
-                  onChange={(e) => setFormData(prev => ({ ...prev, folderId: e.target.value }))}
-                  className="form-select"
-                  disabled={saving}
-                >
-                  <option value="">No Folder</option>
-                </select>
-              </div>
-
-              {/* Color */}
-              <div className="form-group">
-                <label className="form-label">Color</label>
-                <div className="color-picker">
-                  {['', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE'].map((color) => (
-                    <button
-                      key={color || 'none'}
-                      className={`color-btn ${formData.color === color ? 'active' : ''}`}
-                      style={{ backgroundColor: color || '#e5e7eb' }}
-                      onClick={() => setFormData(prev => ({ ...prev, color }))}
-                      disabled={saving}
-                    />
-                  ))}
-                </div>
-              </div>
             </div>
 
-            {/* Description */}
-            <div className="sidebar-section">
-              <h3 className="sidebar-title">Description</h3>
+            <div>
+              <label className="block text-sm font-medium mb-1">Description</label>
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Add a brief description..."
-                className="description-input"
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Write full description or content here..."
+                className="w-full border rounded px-3 py-3 min-h-[320px] resize-vertical"
+                rows={18}
                 disabled={saving}
-                rows={2}
               />
-            </div>
-
-            {/* Tags Section */}
-            <div className="sidebar-section">
-              <h3 className="sidebar-title">Tags</h3>
-              <p className="sidebar-subtitle">Add tags to organize your note</p>
-              
-              <div className="tags-input-wrapper">
-                <input
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                  placeholder="Add a tag..."
-                  className="tag-input"
-                  disabled={saving}
-                />
-                <button
-                  onClick={handleAddTag}
-                  className="add-tag-btn"
-                  disabled={saving}
-                >
-                  Add
-                </button>
-              </div>
-
-              {formData.tags.length > 0 && (
-                <div className="tags-container">
-                  {formData.tags.map((tag, index) => (
-                    <div key={index} className="tag-item">
-                      <span className="tag-text">#{tag}</span>
-                      <button
-                        onClick={() => handleRemoveTag(tag)}
-                        className="remove-tag-btn"
-                        disabled={saving}
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Settings Section */}
-            <div className="sidebar-section">
-              <h3 className="sidebar-title">Settings</h3>
-              <div className="settings-grid">
-                <div className="setting-item">
-                  <input
-                    type="checkbox"
-                    id="starred"
-                    checked={formData.isStarred}
-                    onChange={(e) => setFormData(prev => ({ ...prev, isStarred: e.target.checked }))}
-                    className="setting-checkbox"
-                    disabled={saving}
-                  />
-                  <label htmlFor="starred" className="setting-label">
-                    <div className="setting-icon starred">
-                      <Star className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="setting-title">Star this note</div>
-                      <div className="setting-description">Mark as important</div>
-                    </div>
-                  </label>
-                </div>
-
-                <div className="setting-item">
-                  <input
-                    type="checkbox"
-                    id="archived"
-                    checked={formData.isArchived}
-                    onChange={(e) => setFormData(prev => ({ ...prev, isArchived: e.target.checked }))}
-                    className="setting-checkbox"
-                    disabled={saving}
-                  />
-                  <label htmlFor="archived" className="setting-label">
-                    <div className="setting-icon archived">
-                      <Archive className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="setting-title">Archive</div>
-                      <div className="setting-description">Hide from main view</div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Statistics */}
-            <div className="sidebar-section">
-              <h3 className="sidebar-title">Statistics</h3>
-              <div className="stats-grid">
-                <div className="stat-item">
-                  <div className="stat-value">
-                    {formData.content.split(' ').filter(w => w.length > 0).length}
-                  </div>
-                  <div className="stat-label">Words</div>
-                </div>
-                <div className="stat-item">
-                  <div className="stat-value">
-                    {formData.content.length}
-                  </div>
-                  <div className="stat-label">Characters</div>
-                </div>
-                <div className="stat-item">
-                  <div className="stat-value">
-                    {formData.content.split('\n').length}
-                  </div>
-                  <div className="stat-label">Lines</div>
-                </div>
-                <div className="stat-item">
-                  <div className="stat-value">
-                    {formData.tags.length}
-                  </div>
-                  <div className="stat-label">Tags</div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Quick Actions Bar */}
-      <div className="quick-actions-bar">
-        <button
-          onClick={() => handleFormat('bold')}
-          className="quick-action-btn"
-          disabled={saving}
-          title="Bold"
-        >
-          <Bold className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => handleFormat('italic')}
-          className="quick-action-btn"
-          disabled={saving}
-          title="Italic"
-        >
-          <Italic className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => handleFormat('list')}
-          className="quick-action-btn"
-          disabled={saving}
-          title="List"
-        >
-          <List className="w-4 h-4" />
-        </button>
-        <div className="divider" />
-        <button
-          onClick={handleSave}
-          className="quick-save-btn"
-          disabled={saving}
-          title="Save"
-        >
-          {saving ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Save className="w-4 h-4" />
-          )}
-        </button>
+        <aside className="bg-white border rounded-lg p-6 shadow-sm">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Folder *</label>
+              <select
+                value={formData.folderId}
+                onChange={(e) => setFormData({ ...formData, folderId: e.target.value })}
+                className={`w-full border rounded px-3 py-2 ${errors.folderId ? 'border-red-400' : 'border-gray-200'}`}
+                disabled={saving}
+              >
+                <option value="">Select folder...</option>
+                {folders.map((folder) => (
+                  <option key={folder._id} value={folder._id}>
+                    {folder.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Color</label>
+              <div className="flex flex-wrap gap-2">
+                {["#FFFFFF", "#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8", "#F7DC6F", "#BB8FCE"].map((color) => (
+                  <button
+                    key={color}
+                    aria-label={color}
+                    onClick={() => setFormData({ ...formData, color })}
+                    disabled={saving}
+                    className={`w-8 h-8 rounded ${formData.color === color ? 'ring-2 ring-offset-1 ring-primary' : 'border'}`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-500">Only title and folder are required. Description and color are optional.</p>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );

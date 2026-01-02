@@ -1,14 +1,11 @@
 import { connectDB } from "@/lib/db";
-import Note from "@/models/Note.model";
 import User from "@/models/User.model";
-import Tag from "@/models/Tag.model";
 
 export async function buildReport() {
   await connectDB();
 
   const totalUsers = await User.countDocuments();
   const totalNotes = await Note.countDocuments();
-  const totalTags = await Tag.countDocuments();
 
   // Top users by note count
   const topUsers = await Note.aggregate([
@@ -47,7 +44,7 @@ export async function buildReport() {
   }));
 
   return {
-    systemSummary: { totalUsers, totalNotes, totalTags },
+    systemSummary: { totalUsers, totalNotes },
     usersPerformance: topUsersEnriched,
     activityDaily
   };

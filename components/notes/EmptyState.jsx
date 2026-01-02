@@ -1,7 +1,7 @@
 "use client";
 
 import { FileText, Filter, Plus, Sparkles } from "lucide-react";
-
+import "@/styles/components/notes.css";
 export default function EmptyState({ filters, onClearFilters, onCreateNote }) {
   const hasFilters = Object.values(filters).some(v => 
     v !== null && v !== '' && (!Array.isArray(v) || v.length > 0) && v !== 'all'
