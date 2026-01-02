@@ -164,6 +164,34 @@
   --animate-scale-in: var(--animate-scale-in);
   --animate-float: var(--animate-float);
   --animate-gradient: var(--animate-gradient);
+   --color-success-50: #f0fdf4;
+  --color-success-100: #dcfce7;
+  --color-success-200: #bbf7d0;
+  --color-success-300: #86efac;
+  --color-success-400: #4ade80;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d;
+  --color-success-800: #166534;
+  --color-success-900: #14532d;
+  --color-success-50-rgb: 240, 253, 244;
+  --color-success-100-rgb: 220, 252, 231;
+  --color-success-900-rgb: 20, 83, 45;
+  
+  /* Error Colors */
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-200: #fecaca;
+  --color-error-300: #fca5a5;
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+  --color-error-800: #991b1b;
+  --color-error-900: #7f1d1d;
+  --color-error-50-rgb: 254, 242, 242;
+  --color-error-100-rgb: 254, 226, 226;
+  --color-error-900-rgb: 127, 29, 29;
 }
 
 /* Base Styles */

@@ -1,64 +1,85 @@
 // components/ui/GoogleReCaptcha.jsx
 "use client";
 
-import { useEffect, useState, useRef } from 'react';
-import { Shield, AlertCircle, Check } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { Shield, AlertCircle, Check, RefreshCw } from 'lucide-react';
+import '@/styles/components/recaptcha.css';
 
-export default function GoogleReCaptcha({ onVerify, action = 'login' }) {
+export default function GoogleReCaptcha({ 
+  onVerify, 
+  action = 'login',
+  showScore = false,
+  autoLoad = true
+}) {
   const [token, setToken] = useState(null);
   const [score, setScore] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   
   const scriptRef = useRef(null);
+  const mountedRef = useRef(true);
 
-  // بارگذاری اسکریپت reCAPTCHA
+  // Cleanup on unmount
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const loadRecaptcha = () => {
-      if (window.grecaptcha) {
-        setIsLoaded(true);
-        executeRecaptcha();
-        return;
-      }
-
-      // اضافه کردن اسکریپت اگر وجود ندارد
-      if (!scriptRef.current) {
-        scriptRef.current = document.createElement('script');
-        scriptRef.current.src = `https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`;
-        scriptRef.current.async = true;
-        scriptRef.current.defer = true;
-        
-        scriptRef.current.onload = () => {
-          setIsLoaded(true);
-          executeRecaptcha();
-        };
-        
-        scriptRef.current.onerror = () => {
-          setError('Failed to load reCAPTCHA');
-        };
-        
-        document.head.appendChild(scriptRef.current);
-      }
-    };
-
-    loadRecaptcha();
-
     return () => {
+      mountedRef.current = false;
       if (scriptRef.current) {
         document.head.removeChild(scriptRef.current);
-        scriptRef.current = null;
       }
     };
   }, []);
 
-  // اجرای reCAPTCHA
-  const executeRecaptcha = async () => {
-    if (!window.grecaptcha) {
-      setError('reCAPTCHA not loaded');
+  // Load reCAPTCHA script
+  const loadScript = useCallback(() => {
+    if (typeof window === 'undefined') return;
+
+    if (window.grecaptcha) {
+      setIsLoaded(true);
       return;
     }
+
+    // Check if script is already being loaded
+    if (document.querySelector('script[src*="recaptcha"]')) {
+      const checkInterval = setInterval(() => {
+        if (window.grecaptcha) {
+          clearInterval(checkInterval);
+          setIsLoaded(true);
+        }
+      }, 100);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`;
+    script.async = true;
+    script.defer = true;
+    
+    script.onload = () => {
+      if (mountedRef.current) {
+        setIsLoaded(true);
+      }
+    };
+    
+    script.onerror = () => {
+      if (mountedRef.current) {
+        setError('Failed to load reCAPTCHA script. Please check your connection.');
+      }
+    };
+    
+    document.head.appendChild(script);
+    scriptRef.current = script;
+  }, []);
+
+  // Execute reCAPTCHA
+  const executeRecaptcha = useCallback(async () => {
+    if (!isLoaded || !window.grecaptcha) {
+      setError('reCAPTCHA is not ready');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
 
     try {
       const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
@@ -66,142 +87,152 @@ export default function GoogleReCaptcha({ onVerify, action = 'login' }) {
         throw new Error('reCAPTCHA site key is not configured');
       }
 
-      const token = await window.grecaptcha.execute(siteKey, { action });
-      setToken(token);
+      const freshToken = await window.grecaptcha.execute(siteKey, { action });
       
-      // ارسال توکن به والد
-      onVerify?.(token);
-      
-      // برای نمایش (در حالت واقعی نباید این کار رو کرد)
-      // این فقط برای نمایش در دمو است
-      setTimeout(() => {
-        setScore(0.9); // شبیه‌سازی امتیاز
-      }, 500);
-      
+      if (mountedRef.current) {
+        setToken(freshToken);
+        onVerify?.(freshToken);
+        
+        // Simulate score for demo (remove in production)
+        if (showScore) {
+          setTimeout(() => {
+            if (mountedRef.current) {
+              setScore(0.9 + Math.random() * 0.1); // Random score between 0.9-1.0
+            }
+          }, 500);
+        }
+      }
     } catch (err) {
-      console.error('reCAPTCHA execution error:', err);
-      setError('Failed to execute reCAPTCHA');
+      if (mountedRef.current) {
+        console.error('reCAPTCHA execution error:', err);
+        setError(err.message || 'Failed to execute reCAPTCHA');
+        setToken(null);
+      }
+    } finally {
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
-  };
+  }, [isLoaded, action, onVerify, showScore]);
 
-  // اجرای مجدد reCAPTCHA
-  const refreshRecaptcha = async () => {
+  // Initial load and execute
+  useEffect(() => {
+    if (autoLoad) {
+      loadScript();
+    }
+  }, [autoLoad, loadScript]);
+
+  // Execute when script loads
+  useEffect(() => {
+    if (isLoaded && autoLoad) {
+      executeRecaptcha();
+    }
+  }, [isLoaded, autoLoad, executeRecaptcha]);
+
+  // Manual refresh
+  const refreshRecaptcha = useCallback(async () => {
     setToken(null);
     setScore(null);
     setError(null);
     await executeRecaptcha();
-  };
+  }, [executeRecaptcha]);
 
+  // Error state
   if (error) {
     return (
-      <div className="p-4 border border-red-300 rounded-lg bg-red-50 dark:bg-red-900/20 dark:border-red-800">
-        <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-          <AlertCircle className="w-5 h-5" />
-          <span className="font-medium">reCAPTCHA Error</span>
+      <div className="recaptcha-container">
+        <div className="recaptcha-error">
+          <div className="recaptcha-error-header">
+            <AlertCircle className="w-5 h-5" />
+            <div className="recaptcha-error-title">Security Check Failed</div>
+          </div>
+          <div className="recaptcha-error-message">{error}</div>
+          <button
+            onClick={refreshRecaptcha}
+            className="recaptcha-retry-btn"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Try Again
+          </button>
         </div>
-        <p className="mt-1 text-sm text-red-500 dark:text-red-300">{error}</p>
-        <button
-          onClick={refreshRecaptcha}
-          className="mt-3 px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors"
-        >
-          Try Again
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="w-full">
-      <div className="mb-2 flex items-center justify-between">
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+    <div className="recaptcha-container">
+      <div className="recaptcha-header">
+        <label className="recaptcha-label">
           <Shield className="w-4 h-4" />
-          Security Check
+          Security Verification
         </label>
-        <div className="flex items-center gap-1 text-xs">
-          <span className="text-gray-500 dark:text-gray-400">Powered by Google</span>
-          <div className="w-4 h-4 bg-gradient-to-br from-blue-500 to-red-500 rounded" />
+        <div className="recaptcha-branding">
+          <span className="recaptcha-brand-text">Powered by</span>
+          <div className="recaptcha-logo" />
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 p-4">
-        <div className="flex items-center justify-between mb-4">
+      <div className="recaptcha-card">
+        <div className="recaptcha-card-header">
           <div>
-            <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-              Google reCAPTCHA v3
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Invisible security check
-            </div>
+            <div className="recaptcha-title">Google reCAPTCHA v3</div>
+            <div className="recaptcha-subtitle">Invisible security verification</div>
           </div>
           
           <button
             type="button"
             onClick={refreshRecaptcha}
-            disabled={!isLoaded}
-            className="rounded-lg border border-gray-300 bg-white p-2 transition-all hover:bg-gray-50 hover:shadow-sm disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700"
-            aria-label="Refresh reCAPTCHA"
+            disabled={!isLoaded || isLoading}
+            className="recaptcha-refresh-btn"
+            aria-label="Refresh security check"
           >
-            <svg
-              className="w-4 h-4 text-gray-600 dark:text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
+            <RefreshCw className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${token ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-800'}`}>
-              {token ? (
-                <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-              ) : (
-                <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 rounded-full animate-spin" />
-              )}
+        <div className="recaptcha-status">
+          <div className={`recaptcha-status-icon ${token ? 'success' : 'loading'}`}>
+            {token ? (
+              <Check className="w-5 h-5 text-green-500" />
+            ) : (
+              <div className="recaptcha-spinner" />
+            )}
+          </div>
+          <div className="recaptcha-status-content">
+            <div className="recaptcha-status-title">
+              {token ? 'Verification Complete' : 'Verifying Security'}
             </div>
-            <div className="flex-1">
-              <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                {token ? 'Verification Complete' : 'Verifying...'}
-              </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                {token ? 'You have passed the security check' : 'Checking if you\'re human...'}
-              </div>
+            <div className="recaptcha-status-message">
+              {token 
+                ? 'You have successfully passed the security check'
+                : 'Please wait while we verify you\'re human'
+              }
             </div>
           </div>
-
-          {score !== null && (
-            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Trust Score
-                </div>
-                <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                  {score.toFixed(1)}
-                </div>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-gradient-to-r from-green-400 to-blue-500 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${score * 100}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
-                <span>Bot</span>
-                <span>Human</span>
-              </div>
-            </div>
-          )}
         </div>
 
-        <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-          This invisible check helps us prevent spam and abuse. No puzzle solving required.
+        {showScore && score !== null && (
+          <div className="recaptcha-score-section">
+            <div className="recaptcha-score-header">
+              <div className="recaptcha-score-label">Trust Score</div>
+              <div className="recaptcha-score-value">{score.toFixed(1)}</div>
+            </div>
+            <div className="recaptcha-score-bar">
+              <div 
+                className="recaptcha-score-fill" 
+                style={{ width: `${score * 100}%` }}
+              />
+            </div>
+            <div className="recaptcha-score-labels">
+              <span className="recaptcha-score-label-left">Bot</span>
+              <span className="recaptcha-score-label-right">Human</span>
+            </div>
+          </div>
+        )}
+
+        <div className="recaptcha-footer">
+          This invisible security check helps prevent spam and abuse. 
+          No interaction required.
         </div>
       </div>
     </div>

@@ -1,37 +1,17 @@
+// app/auth/login/page.jsx
 "use client";
 
 import { Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Mail, Lock, AlertCircle, Loader2, Eye, EyeOff, LogIn, 
   Chrome, Shield, Sparkles, ArrowLeft, CheckCircle 
 } from "lucide-react";
 import Link from "next/link";
+import GoogleReCaptcha from "@/components/ui/GoogleReCapcha";
 import "@/styles/auth.css";
-
-// reCAPTCHA utility
-const executeRecaptcha = async (action = 'login') => {
-  if (typeof window === 'undefined' || !window.grecaptcha) {
-    console.error('reCAPTCHA not loaded');
-    return null;
-  }
-
-  try {
-    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
-    if (!siteKey) {
-      console.warn('reCAPTCHA site key not configured');
-      return 'development_token';
-    }
-
-    const token = await window.grecaptcha.execute(siteKey, { action });
-    return token;
-  } catch (error) {
-    console.error('reCAPTCHA execution failed:', error);
-    return null;
-  }
-};
 
 function LoginContent() {
   const router = useRouter();
@@ -46,24 +26,7 @@ function LoginContent() {
   const [error, setError] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [recaptchaToken, setRecaptchaToken] = useState("");
-  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false);
-
-  // Check reCAPTCHA loaded
-  useEffect(() => {
-    const checkRecaptcha = () => {
-      if (typeof window !== 'undefined' && window.grecaptcha) {
-        setRecaptchaLoaded(true);
-      }
-    };
-
-    // Check immediately
-    checkRecaptcha();
-    
-    // Also check after a delay
-    const timer = setTimeout(checkRecaptcha, 1000);
-    
-    return () => clearTimeout(timer);
-  }, []);
+  const [recaptchaError, setRecaptchaError] = useState("");
 
   // Load saved email
   useEffect(() => {
@@ -74,23 +37,20 @@ function LoginContent() {
     }
   }, []);
 
-  // Execute reCAPTCHA on mount and when error occurs
-  useEffect(() => {
-    if (recaptchaLoaded && !recaptchaToken) {
-      getRecaptchaToken();
-    }
-  }, [recaptchaLoaded, recaptchaToken]);
+  const handleRecaptchaVerify = useCallback((token) => {
+    setRecaptchaToken(token);
+    setRecaptchaError("");
+  }, []);
 
-  const getRecaptchaToken = async () => {
-    const token = await executeRecaptcha('login');
-    if (token) {
-      setRecaptchaToken(token);
-    }
-  };
+  const handleRecaptchaError = useCallback((errorMsg) => {
+    setRecaptchaError(errorMsg);
+    setRecaptchaToken("");
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setRecaptchaError("");
     
     // Validate form
     if (!email || !password) {
@@ -98,10 +58,9 @@ function LoginContent() {
       return;
     }
 
-    // Get fresh reCAPTCHA token
-    const freshToken = await executeRecaptcha('login');
-    if (!freshToken) {
-      setError("Security check failed. Please refresh the page.");
+    // Validate reCAPTCHA
+    if (!recaptchaToken) {
+      setError("Please complete the security verification");
       return;
     }
 
@@ -119,10 +78,8 @@ function LoginContent() {
         redirect: false,
         email,
         password,
-        recaptchaToken: freshToken,
+        recaptchaToken,
       });
-
-      console.log("Login response:", res);
 
       if (!res?.error) {
         // Login successful
@@ -136,18 +93,17 @@ function LoginContent() {
           errorMsg = "ایمیل یا رمز عبور اشتباه است.";
         } else if (res.error === "USE_GOOGLE") {
           errorMsg = "این حساب با گوگل ساخته شده؛ لطفاً از گزینه 'Continue with Google' استفاده کنید.";
-        } else if (res.error === "RECAPTCHA_FAILED" || (res.error && res.error.toLowerCase().includes("recaptcha"))) {
-          errorMsg = "تأیید امنیتی ناموفق بود. لطفا صفحه را تازه کنید و دوباره تلاش کنید.";
+        } else if (res.error === "RECAPTCHA_FAILED") {
+          errorMsg = "تأیید امنیتی ناموفق بود. لطفا دوباره تلاش کنید.";
+          setRecaptchaToken("");
         }
 
         setError(errorMsg);
-        // Refresh reCAPTCHA on failed attempt
-        setRecaptchaToken("");
-        getRecaptchaToken();
       }
     } catch (err) {
       console.error("Login error:", err);
       setError("An unexpected error occurred. Please try again.");
+      setRecaptchaToken("");
     } finally {
       setLoading(false);
     }
@@ -211,20 +167,6 @@ function LoginContent() {
                   <h3>Real-time Sync</h3>
                   <p>Access your notes across all devices</p>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="testimonial">
-            <div className="quote-icon">"</div>
-            <p className="quote-text">
-              "The best online note-taking experience I've ever had! Completely changed how I organize my thoughts."
-            </p>
-            <div className="quote-author">
-              <div className="author-avatar">SJ</div>
-              <div className="author-info">
-                <div className="author-name">Sarah Johnson</div>
-                <div className="author-role">UX Designer at TechCorp</div>
               </div>
             </div>
           </div>
@@ -353,18 +295,21 @@ function LoginContent() {
                 </Link>
               </div>
 
-              {/* reCAPTCHA Status */}
-              <div className="security-info">
-                <div className="security-item">
-                  <Shield className="w-4 h-4" />
-                  <span>
-                    {recaptchaToken ? "✓ Security check passed" : "⏳ Verifying security..."}
-                  </span>
+              {/* Google reCAPTCHA v3 */}
+              <GoogleReCaptcha 
+                onVerify={handleRecaptchaVerify}
+                onError={handleRecaptchaError}
+                action="login"
+                showScore={true}
+                autoLoad={true}
+              />
+
+              {recaptchaError && (
+                <div className="alert-message error">
+                  <AlertCircle className="w-4 h-4" />
+                  <p className="text-sm">{recaptchaError}</p>
                 </div>
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                  Google reCAPTCHA v3 is protecting this form from spam
-                </p>
-              </div>
+              )}
 
               {/* Submit Button */}
               <button

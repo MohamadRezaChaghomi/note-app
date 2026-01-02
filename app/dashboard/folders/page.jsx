@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Folder, Trash2, Edit2, FileText, Loader2, AlertCircle, ChevronRight, MoreVertical, Users, Lock, Star, Calendar } from "lucide-react";
+import { Plus, Folder, Trash2, Edit2, FileText, Loader, AlertCircle, ChevronRight, MoreVertical, Users, Lock, Star, Calendar } from "lucide-react";
 import "@/styles/folders.css";
 
 export default function FoldersPage() {
@@ -190,7 +190,7 @@ export default function FoldersPage() {
     return (
       <div className="folders-modern-page">
         <div className="loading-state">
-          <Loader2 className="spinner" size={40} />
+          <div className="loading-spinner"></div>
           <p>Loading folders...</p>
         </div>
       </div>

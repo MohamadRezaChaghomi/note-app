@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   Search, Filter, X, Sparkles, 
   Clock, Tag, User, Loader2,
-  Star, Archive, Eye, ExternalLink
+  Star, Archive, Eye
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 import "@/styles/search-page.css";
 
 export default function SearchPage() {
@@ -31,7 +33,7 @@ export default function SearchPage() {
     }
   }, []);
 
-  const handleSearch = async (searchQuery = query) => {
+  const handleSearch = useCallback(async (searchQuery = query) => {
     if (!searchQuery.trim()) return;
     
     setLoading(true);
@@ -60,13 +62,12 @@ export default function SearchPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [query, activeFilters, searchHistory]);
 
-  const handleInputChange = async (value) => {
+  const handleInputChange = useCallback(async (value) => {
     setQuery(value);
     
     if (value.trim().length >= 2) {
-      // Fetch suggestions
       try {
         const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(value)}`);
         const data = await res.json();
@@ -77,31 +78,58 @@ export default function SearchPage() {
     } else {
       setSuggestions([]);
     }
-  };
+  }, []);
 
-  const handleQuickSearch = (searchTerm) => {
+  const handleQuickSearch = useCallback((searchTerm) => {
     setQuery(searchTerm);
     handleSearch(searchTerm);
-  };
+  }, [handleSearch]);
 
-  const handleClearSearch = () => {
+  const handleClearSearch = useCallback(() => {
     setQuery("");
     setNotes([]);
     setSuggestions([]);
-  };
+  }, []);
 
-  const handleNoteClick = (noteId) => {
+  const handleNoteClick = useCallback((noteId) => {
     router.push(`/dashboard/notes/${noteId}`);
-  };
+  }, [router]);
 
-  const formatDate = (dateString) => {
+  const formatDate = useCallback((dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('fa-IR', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
-  };
+  }, []);
+
+  const quickFilters = useMemo(() => [
+    { key: "starred", label: "Starred Notes", icon: Star },
+    { key: "recent", label: "Recent", icon: Clock },
+    { key: "archived", label: "Archived", icon: Archive }
+  ], []);
+
+  const searchTips = useMemo(() => [
+    {
+      icon: Sparkles,
+      title: "Use keywords",
+      description: "Search for specific words or phrases in your notes",
+      color: "blue"
+    },
+    {
+      icon: Tag,
+      title: "Search by tags",
+      description: "Use tag names to find related notes quickly",
+      color: "purple"
+    },
+    {
+      icon: User,
+      title: "Full-text search",
+      description: "Search works in both Persian and English content",
+      color: "green"
+    }
+  ], []);
 
   return (
     <div className="search-container">
@@ -132,10 +160,10 @@ export default function SearchPage() {
                 <X className="w-5 h-5" />
               </button>
             )}
-            <button 
-              onClick={() => handleSearch()} 
-              className="search-action-btn"
+            <Button
+              onClick={() => handleSearch()}
               disabled={loading || !query.trim()}
+              className="search-action-btn"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -143,7 +171,7 @@ export default function SearchPage() {
                 <Search className="w-5 h-5" />
               )}
               Search
-            </button>
+            </Button>
           </div>
 
           {/* Suggestions Dropdown */}
@@ -170,27 +198,16 @@ export default function SearchPage() {
             <span>Quick Filters</span>
           </div>
           <div className="filter-buttons">
-            <button
-              onClick={() => handleQuickSearch("starred")}
-              className="filter-btn"
-            >
-              <Star className="w-4 h-4" />
-              Starred Notes
-            </button>
-            <button
-              onClick={() => handleQuickSearch("recent")}
-              className="filter-btn"
-            >
-              <Clock className="w-4 h-4" />
-              Recent
-            </button>
-            <button
-              onClick={() => handleQuickSearch("archived")}
-              className="filter-btn"
-            >
-              <Archive className="w-4 h-4" />
-              Archived
-            </button>
+            {quickFilters.map((filter) => (
+              <button
+                key={filter.key}
+                onClick={() => handleQuickSearch(filter.key)}
+                className="filter-btn"
+              >
+                <filter.icon className="w-4 h-4" />
+                {filter.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -232,7 +249,7 @@ export default function SearchPage() {
 
         {/* Results Grid */}
         {notes.length === 0 && query ? (
-          <div className="empty-results">
+          <Card className="empty-results">
             <div className="empty-icon">
               <Search className="w-12 h-12" />
             </div>
@@ -254,12 +271,12 @@ export default function SearchPage() {
                 </div>
               </div>
             )}
-          </div>
+          </Card>
         ) : (
           <div className="notes-grid">
             {notes.map((note) => (
-              <div 
-                key={note._id} 
+              <Card
+                key={note._id}
                 className="search-note-card"
                 onClick={() => handleNoteClick(note._id)}
               >
@@ -328,21 +345,15 @@ export default function SearchPage() {
                       Archived
                     </span>
                   )}
-                  {note.isTrashed && (
-                    <span className="status-badge trashed">
-                      <X className="w-3 h-3" />
-                      Trashed
-                    </span>
-                  )}
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}
 
         {/* Search History */}
         {recentSearches.length > 0 && notes.length === 0 && !query && (
-          <div className="search-history">
+          <Card className="search-history">
             <h3 className="history-title">Recent Searches</h3>
             <div className="history-grid">
               {recentSearches.map((search, index) => (
@@ -356,31 +367,23 @@ export default function SearchPage() {
                 </button>
               ))}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Search Tips */}
         {notes.length === 0 && (
-          <div className="search-tips">
+          <Card className="search-tips">
             <h3 className="tips-title">Search Tips</h3>
             <div className="tips-grid">
-              <div className="tip-card">
-                <Sparkles className="w-6 h-6 text-blue-500" />
-                <h4>Use keywords</h4>
-                <p>Search for specific words or phrases in your notes</p>
-              </div>
-              <div className="tip-card">
-                <Tag className="w-6 h-6 text-purple-500" />
-                <h4>Search by tags</h4>
-                <p>Use tag names to find related notes quickly</p>
-              </div>
-              <div className="tip-card">
-                <User className="w-6 h-6 text-green-500" />
-                <h4>Full-text search</h4>
-                <p>Search works in both Persian and English content</p>
-              </div>
+              {searchTips.map((tip, index) => (
+                <div key={index} className="tip-card">
+                  <tip.icon className={`w-6 h-6 text-${tip.color}-500`} />
+                  <h4>{tip.title}</h4>
+                  <p>{tip.description}</p>
+                </div>
+              ))}
             </div>
-          </div>
+          </Card>
         )}
       </div>
     </div>

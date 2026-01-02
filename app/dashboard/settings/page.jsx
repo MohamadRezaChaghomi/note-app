@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { Settings, Bell, Shield, Palette, User, Save, ArrowLeft } from "lucide-react";
+import { Bell, Shield, Palette, User, Save, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 import "@/styles/settings.css";
 
 export default function SettingsPage() {
@@ -26,7 +28,7 @@ export default function SettingsPage() {
   });
   const [saved, setSaved] = useState(false);
 
-  const handleSettingChange = (section, key, value) => {
+  const handleSettingChange = useCallback((section, key, value) => {
     setSettings(prev => ({
       ...prev,
       [section]: {
@@ -35,62 +37,32 @@ export default function SettingsPage() {
       }
     }));
     setSaved(false);
-  };
+  }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     try {
-      // In real app, save to API
-      // await fetch("/api/settings", {
-      //   method: "PUT",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(settings)
-      // });
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 500));
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
       console.error("Failed to save settings:", error);
     }
-  };
+  }, []);
 
-  return (
-    <div className="settings-page">
-      {/* Header */}
-      <div className="settings-header">
-        <Link href="/dashboard" className="back-button">
-          <ArrowLeft className="w-4 h-4" />
-        </Link>
-        <div>
-          <h1>Settings</h1>
-          <p>Manage your account and preferences</p>
-        </div>
-      </div>
+  const navItems = [
+    { id: "general", label: "General", icon: User },
+    { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "appearance", label: "Appearance", icon: Palette },
+    { id: "privacy", label: "Privacy", icon: Shield }
+  ];
 
-      <div className="settings-container">
-        {/* Sidebar Navigation */}
-        <div className="settings-sidebar">
-          <div className="settings-nav">
-            <button className="nav-item active" data-section="general">
-              <User className="w-4 h-4" />
-              General
-            </button>
-            <button className="nav-item" data-section="notifications">
-              <Bell className="w-4 h-4" />
-              Notifications
-            </button>
-            <button className="nav-item" data-section="appearance">
-              <Palette className="w-4 h-4" />
-              Appearance
-            </button>
-            <button className="nav-item" data-section="privacy">
-              <Shield className="w-4 h-4" />
-              Privacy
-            </button>
-          </div>
-        </div>
+  const [activeSection, setActiveSection] = useState("general");
 
-        {/* Settings Content */}
-        <div className="settings-content">
-          {/* General Settings */}
+  const renderSection = () => {
+    switch (activeSection) {
+      case "general":
+        return (
           <div className="settings-section">
             <div className="section-header">
               <h2>General Settings</h2>
@@ -119,8 +91,10 @@ export default function SettingsPage() {
               />
             </div>
           </div>
+        );
 
-          {/* Notification Settings */}
+      case "notifications":
+        return (
           <div className="settings-section">
             <div className="section-header">
               <h2>Notification Preferences</h2>
@@ -180,8 +154,10 @@ export default function SettingsPage() {
               </select>
             </div>
           </div>
+        );
 
-          {/* Appearance Settings */}
+      case "appearance":
+        return (
           <div className="settings-section">
             <div className="section-header">
               <h2>Appearance</h2>
@@ -220,8 +196,10 @@ export default function SettingsPage() {
               </select>
             </div>
           </div>
+        );
 
-          {/* Privacy Settings */}
+      case "privacy":
+        return (
           <div className="settings-section">
             <div className="section-header">
               <h2>Privacy & Security</h2>
@@ -256,19 +234,66 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="settings-page">
+      {/* Header */}
+      <div className="settings-header">
+        <Link href="/dashboard" className="back-button">
+          <ArrowLeft className="w-4 h-4" />
+        </Link>
+        <div>
+          <h1>Settings</h1>
+          <p>Manage your account and preferences</p>
+        </div>
+      </div>
+
+      <div className="settings-container">
+        {/* Sidebar Navigation */}
+        <Card className="settings-sidebar">
+          <div className="settings-nav">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                onClick={() => setActiveSection(item.id)}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        {/* Settings Content */}
+        <Card className="settings-content">
+          {renderSection()}
 
           {/* Save Button */}
           <div className="settings-footer">
-            <button onClick={handleSave} className="btn-save">
+            <Button
+              onClick={handleSave}
+              className="btn-save"
+            >
               <Save className="w-4 h-4" />
               Save Changes
-            </button>
-            <button onClick={() => signOut({ callbackUrl: '/' })} className="btn-logout">
-             Log Out
-            </button>
+            </Button>
+            <Button
+              onClick={() => signOut({ callbackUrl: '/' })}
+              variant="secondary"
+              className="btn-logout"
+            >
+              Log Out
+            </Button>
             {saved && <span className="save-message">✓ Settings saved</span>}
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

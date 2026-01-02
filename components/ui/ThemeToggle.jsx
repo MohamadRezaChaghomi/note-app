@@ -49,7 +49,6 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
       className="theme-toggle"
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      title={isDark ? "روشن کنید" : "تیره کنید"}
     >
       <div className="theme-toggle-content">
         <Sun 

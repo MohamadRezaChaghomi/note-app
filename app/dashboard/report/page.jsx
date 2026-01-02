@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, Legend
@@ -9,6 +9,8 @@ import {
   Download, Users, FileText, Tag, TrendingUp, Calendar,
   Loader2, AlertCircle, BarChart3, Clock, UserCheck
 } from "lucide-react";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 import "@/styles/report.css";
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'];
@@ -36,7 +38,7 @@ export default function ReportPage() {
     load();
   }, [timeRange]);
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = useCallback(async () => {
     try {
       const res = await fetch('/api/report/export');
       const blob = await res.blob();
@@ -50,7 +52,77 @@ export default function ReportPage() {
     } catch (err) {
       console.error('Export failed:', err);
     }
-  };
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    fetch(`/api/report?range=${timeRange}`)
+      .then(res => res.json())
+      .then(d => setData(d))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [timeRange]);
+
+  const summaryCards = useMemo(() => [
+    {
+      key: 'users',
+      title: 'Total Users',
+      value: data?.systemSummary?.totalUsers || 0,
+      change: '+12% from last month',
+      icon: Users,
+      className: 'users-card'
+    },
+    {
+      key: 'notes',
+      title: 'Total Notes',
+      value: data?.systemSummary?.totalNotes || 0,
+      change: '+24% from last month',
+      icon: FileText,
+      className: 'notes-card'
+    },
+    {
+      key: 'tags',
+      title: 'Total Tags',
+      value: data?.systemSummary?.totalTags || 0,
+      change: '+8% from last month',
+      icon: Tag,
+      className: 'tags-card'
+    },
+    {
+      key: 'activity',
+      title: 'Active Users',
+      value: data?.systemSummary?.activeUsers || 'N/A',
+      change: 'Currently online',
+      icon: Clock,
+      className: 'activity-card'
+    }
+  ], [data]);
+
+  const timeRanges = useMemo(() => [
+    { value: '7days', label: 'Last 7 days' },
+    { value: '14days', label: 'Last 14 days' },
+    { value: '30days', label: 'Last 30 days' },
+    { value: '90days', label: 'Last 90 days' }
+  ], []);
+
+  const insights = useMemo(() => [
+    {
+      title: 'Peak Activity Hours',
+      value: '2:00 PM - 4:00 PM',
+      description: 'Most notes are created during these hours'
+    },
+    {
+      title: 'Average Notes per User',
+      value: data ? Math.round(data.systemSummary.totalNotes / data.systemSummary.totalUsers) || 0 : 0,
+      description: 'Average notes created per user'
+    },
+    {
+      title: 'Most Productive Day',
+      value: 'Tuesday',
+      description: 'Highest note creation rate'
+    }
+  ], [data]);
 
   if (loading) {
     return (
@@ -66,14 +138,14 @@ export default function ReportPage() {
   if (error || !data?.ok) {
     return (
       <div className="report-container">
-        <div className="error-state">
+        <Card className="error-state">
           <AlertCircle className="w-12 h-12 text-red-500" />
           <h3>Failed to load report</h3>
           <p>{error || 'Please try again later'}</p>
-          <button onClick={() => window.location.reload()} className="retry-btn">
+          <Button onClick={handleRetry} className="retry-btn">
             Retry
-          </button>
-        </div>
+          </Button>
+        </Card>
       </div>
     );
   }
@@ -99,83 +171,44 @@ export default function ReportPage() {
                 onChange={(e) => setTimeRange(e.target.value)}
                 className="range-select"
               >
-                <option value="7days">Last 7 days</option>
-                <option value="14days">Last 14 days</option>
-                <option value="30days">Last 30 days</option>
-                <option value="90days">Last 90 days</option>
+                {timeRanges.map((range) => (
+                  <option key={range.value} value={range.value}>
+                    {range.label}
+                  </option>
+                ))}
               </select>
             </div>
-            <button onClick={handleExportPDF} className="export-btn">
+            <Button onClick={handleExportPDF} className="export-btn">
               <Download className="w-5 h-5" />
               Export PDF
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="summary-grid">
-        <div className="summary-card users-card">
-          <div className="card-icon">
-            <Users className="w-6 h-6" />
-          </div>
-          <div className="card-content">
-            <h3>Total Users</h3>
-            <div className="card-value">{systemSummary.totalUsers}</div>
-            <div className="card-change">
-              <TrendingUp className="w-4 h-4" />
-              <span>+12% from last month</span>
+        {summaryCards.map((card) => (
+          <Card key={card.key} className={`summary-card ${card.className}`}>
+            <div className="card-icon">
+              <card.icon className="w-6 h-6" />
             </div>
-          </div>
-        </div>
-
-        <div className="summary-card notes-card">
-          <div className="card-icon">
-            <FileText className="w-6 h-6" />
-          </div>
-          <div className="card-content">
-            <h3>Total Notes</h3>
-            <div className="card-value">{systemSummary.totalNotes}</div>
-            <div className="card-change">
-              <TrendingUp className="w-4 h-4" />
-              <span>+24% from last month</span>
+            <div className="card-content">
+              <h3>{card.title}</h3>
+              <div className="card-value">{card.value}</div>
+              <div className="card-change">
+                <TrendingUp className="w-4 h-4" />
+                <span>{card.change}</span>
+              </div>
             </div>
-          </div>
-        </div>
-
-        <div className="summary-card tags-card">
-          <div className="card-icon">
-            <Tag className="w-6 h-6" />
-          </div>
-          <div className="card-content">
-            <h3>Total Tags</h3>
-            <div className="card-value">{systemSummary.totalTags}</div>
-            <div className="card-change">
-              <TrendingUp className="w-4 h-4" />
-              <span>+8% from last month</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="summary-card activity-card">
-          <div className="card-icon">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div className="card-content">
-            <h3>Active Users</h3>
-            <div className="card-value">{systemSummary.activeUsers || 'N/A'}</div>
-            <div className="card-change">
-              <UserCheck className="w-4 h-4" />
-              <span>Currently online</span>
-            </div>
-          </div>
-        </div>
+          </Card>
+        ))}
       </div>
 
       {/* Charts Grid */}
       <div className="charts-grid">
         {/* Activity Chart */}
-        <div className="chart-card">
+        <Card className="chart-card">
           <div className="chart-header">
             <div>
               <h3>Daily Notes Created</h3>
@@ -216,10 +249,10 @@ export default function ReportPage() {
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </Card>
 
         {/* Users Performance */}
-        <div className="chart-card">
+        <Card className="chart-card">
           <div className="chart-header">
             <div>
               <h3>Top Users by Notes</h3>
@@ -263,11 +296,11 @@ export default function ReportPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </Card>
 
         {/* Tag Distribution */}
         {tagDistribution && tagDistribution.length > 0 && (
-          <div className="chart-card">
+          <Card className="chart-card">
             <div className="chart-header">
               <div>
                 <h3>Tag Distribution</h3>
@@ -304,12 +337,12 @@ export default function ReportPage() {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </Card>
         )}
       </div>
 
       {/* Users Performance Table */}
-      <div className="table-card">
+      <Card className="table-card">
         <div className="table-header">
           <h3>Users Performance Ranking</h3>
           <p className="table-subtitle">Sorted by number of notes created</p>
@@ -354,7 +387,11 @@ export default function ReportPage() {
                       <div className="metric-bar">
                         <div 
                           className="metric-fill"
-                          style={{ width: `${(user.notes / usersPerformance[0].notes) * 100}%` }}
+                          style={{ 
+                            width: `${usersPerformance[0]?.notes 
+                              ? (user.notes / usersPerformance[0].notes) * 100 
+                              : 0}%` 
+                          }}
                         />
                       </div>
                     </div>
@@ -379,35 +416,19 @@ export default function ReportPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
       {/* System Insights */}
       <div className="insights-grid">
-        <div className="insight-card">
-          <h4>Peak Activity Hours</h4>
-          <div className="insight-content">
-            <div className="insight-value">2:00 PM - 4:00 PM</div>
-            <p className="insight-text">Most notes are created during these hours</p>
-          </div>
-        </div>
-        
-        <div className="insight-card">
-          <h4>Average Notes per User</h4>
-          <div className="insight-content">
-            <div className="insight-value">
-              {Math.round(systemSummary.totalNotes / systemSummary.totalUsers) || 0}
+        {insights.map((insight, index) => (
+          <Card key={index} className="insight-card">
+            <h4>{insight.title}</h4>
+            <div className="insight-content">
+              <div className="insight-value">{insight.value}</div>
+              <p className="insight-text">{insight.description}</p>
             </div>
-            <p className="insight-text">Average notes created per user</p>
-          </div>
-        </div>
-        
-        <div className="insight-card">
-          <h4>Most Productive Day</h4>
-          <div className="insight-content">
-            <div className="insight-value">Tuesday</div>
-            <p className="insight-text">Highest note creation rate</p>
-          </div>
-        </div>
+          </Card>
+        ))}
       </div>
     </div>
   );

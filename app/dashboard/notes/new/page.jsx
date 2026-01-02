@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Save, X, AlertCircle } from "lucide-react";
+import { Save, X, AlertCircle, Folder, Palette } from "lucide-react";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 import "@/styles/new-note.css";
+
 export default function NewNotePage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -13,7 +16,7 @@ export default function NewNotePage() {
     title: "",
     description: "",
     content: "",
-    color: "#FFFFFF",
+    color: "#3b82f6",
     folderId: ""
   });
   const [errors, setErrors] = useState({});
@@ -22,11 +25,11 @@ export default function NewNotePage() {
     loadFolders();
   }, []);
 
-  const loadFolders = async () => {
+  const loadFolders = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/folders");
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (!res.ok) {
         throw new Error(data.message || `Failed to load folders (${res.status})`);
       }
@@ -37,16 +40,16 @@ export default function NewNotePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const newErrors = {};
     if (!formData.title.trim()) newErrors.title = "Title is required";
     if (!formData.folderId) newErrors.folderId = "Folder selection is required";
     return newErrors;
-  };
+  }, [formData]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -70,7 +73,7 @@ export default function NewNotePage() {
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (!res.ok) {
         setErrors({ submit: data.message || `Error: ${res.status}` });
         return;
@@ -87,44 +90,80 @@ export default function NewNotePage() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [formData, router, validateForm]);
 
-  const handleCancel = () => {
-    if (formData.title || formData.description) {
-      if (confirm("Are you sure?")) {
+  const handleCancel = useCallback(() => {
+    if (formData.title.trim() || formData.description.trim()) {
+      if (confirm("Are you sure you want to discard this note?")) {
         router.push("/dashboard/notes");
       }
     } else {
       router.push("/dashboard/notes");
     }
-  };
+  }, [formData, router]);
+
+  const colorOptions = useMemo(() => [
+    "#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", 
+    "#06b6d4", "#ec4899"
+  ], []);
+
+  const handleInputChange = useCallback((field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error for this field if it exists
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  }, [errors]);
 
   if (loading) {
     return (
-      <div className="editor-container">
-        <div className="loading">Loading...</div>
+      <div className="new-note-container">
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p>Loading folders...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">New Note</h1>
-        <div className="flex gap-2">
-          <button onClick={handleCancel} className="px-3 py-2 rounded border text-sm" disabled={saving}>
+    <div className="new-note-container">
+      {/* Header */}
+      <div className="new-note-header">
+        <div className="new-note-header-content">
+          <h1>Create New Note</h1>
+          <p>Add a new note to your collection</p>
+        </div>
+        <div className="new-note-actions">
+          <Button
+            variant="secondary"
+            onClick={handleCancel}
+            disabled={saving}
+            className="btn-cancel"
+          >
+            <X className="w-4 h-4" />
             Cancel
-          </button>
-          <button onClick={handleSave} className="px-4 py-2 rounded bg-primary text-white text-sm" disabled={saving}>
-            {saving ? "Saving..." : "Save"}
-          </button>
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-save"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? "Saving..." : "Save Note"}
+          </Button>
         </div>
       </div>
 
+      {/* Error Messages */}
       {Object.keys(errors).length > 0 && (
-        <div className="mb-4">
-          {Object.values(errors).map((error, idx) => (
-            <div key={idx} className="flex items-center gap-2 bg-red-50 border border-red-100 text-red-700 px-3 py-2 rounded mb-2">
+        <div className="error-messages">
+          {Object.entries(errors).map(([key, error]) => (
+            <div key={key} className="error-message">
               <AlertCircle className="w-4 h-4" />
               <span>{error}</span>
             </div>
@@ -132,75 +171,83 @@ export default function NewNotePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 bg-white border rounded-lg p-6 shadow-sm">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Title *</label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Note title..."
-                className={`w-full border rounded px-3 py-2 ${errors.title ? 'border-red-400' : 'border-gray-200'}`}
-                disabled={saving}
-              />
-            </div>
+      {/* Main Content */}
+      <div className="new-note-content">
+        {/* Left Panel - Main Content */}
+        <Card className="left-panel">
+          <div className="form-group">
+            <label className="form-label required">Title</label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) => handleInputChange('title', e.target.value)}
+              placeholder="Enter note title"
+              className={`form-input ${errors.title ? 'error' : ''}`}
+              disabled={saving}
+            />
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Write full description or content here..."
-                className="w-full border rounded px-3 py-3 min-h-[320px] resize-vertical"
-                rows={18}
-                disabled={saving}
-              />
+          <div className="form-group">
+            <label className="form-label">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => handleInputChange('description', e.target.value)}
+              placeholder="Write your note content here..."
+              className="form-textarea"
+              rows={16}
+              disabled={saving}
+            />
+          </div>
+        </Card>
+
+        {/* Right Panel - Settings */}
+        <Card className="right-panel">
+          <div className="form-group">
+            <label className="form-label required">
+              <Folder className="w-4 h-4 inline mr-2" />
+              Folder
+            </label>
+            <select
+              value={formData.folderId}
+              onChange={(e) => handleInputChange('folderId', e.target.value)}
+              className={`form-input ${errors.folderId ? 'error' : ''}`}
+              disabled={saving || folders.length === 0}
+            >
+              <option value="">Select a folder...</option>
+              {folders.map((folder) => (
+                <option key={folder._id} value={folder._id}>
+                  {folder.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">
+              <Palette className="w-4 h-4 inline mr-2" />
+              Color
+            </label>
+            <div className="color-picker">
+              {colorOptions.map((color) => (
+                <button
+                  key={color}
+                  onClick={() => handleInputChange('color', color)}
+                  disabled={saving}
+                  className={`color-option ${formData.color === color ? 'selected' : ''}`}
+                  style={{ backgroundColor: color }}
+                  aria-label={`Select color ${color}`}
+                />
+              ))}
             </div>
           </div>
-        </div>
 
-        <aside className="bg-white border rounded-lg p-6 shadow-sm">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Folder *</label>
-              <select
-                value={formData.folderId}
-                onChange={(e) => setFormData({ ...formData, folderId: e.target.value })}
-                className={`w-full border rounded px-3 py-2 ${errors.folderId ? 'border-red-400' : 'border-gray-200'}`}
-                disabled={saving}
-              >
-                <option value="">Select folder...</option>
-                {folders.map((folder) => (
-                  <option key={folder._id} value={folder._id}>
-                    {folder.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Color</label>
-              <div className="flex flex-wrap gap-2">
-                {["#FFFFFF", "#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8", "#F7DC6F", "#BB8FCE"].map((color) => (
-                  <button
-                    key={color}
-                    aria-label={color}
-                    onClick={() => setFormData({ ...formData, color })}
-                    disabled={saving}
-                    className={`w-8 h-8 rounded ${formData.color === color ? 'ring-2 ring-offset-1 ring-primary' : 'border'}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm text-gray-500">Only title and folder are required. Description and color are optional.</p>
-            </div>
+          <div className="form-group">
+            <p className="helper-text">
+              <strong>Note:</strong> Title and folder are required fields.
+              Description and color are optional.
+            </p>
           </div>
-        </aside>
+        </Card>
       </div>
     </div>
   );

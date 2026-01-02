@@ -45,19 +45,10 @@ const mainItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home, exact: true },
   { href: "/dashboard/notes", label: "Notes", icon: FileText, badge: "count" },
   { href: "/dashboard/folders", label: "Folders", icon: Folder, badge: "12" },
-  { href: "/dashboard/tags", label: "Tags", icon: Tag, badge: "8" },
+  { href: "/dashboard/report", label: "Reports", icon: BarChart3, badge: "8" },
   { href: "/dashboard/search", label: "Search", icon: Search },
-  { href: "/dashboard/calendar", label: "Calendar", icon: Calendar },
-  { href: "/dashboard/bookmarks", label: "Bookmarks", icon: Bookmark, badge: "3" },
-  { href: "/dashboard/templates", label: "Templates", icon: FileCode, badge: "New" },
 ];
 
-const secondaryItems = [
-  { href: "/dashboard/analytics", label: "Analytics", icon: PieChart },
-  { href: "/dashboard/team", label: "Team", icon: Users },
-  { href: "/dashboard/import", label: "Import", icon: Download },
-  { href: "/dashboard/export", label: "Export", icon: Upload },
-];
 
 const adminItems = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
@@ -269,43 +260,6 @@ export default function Sidebar({ onClose }) {
           )}
         </div>
 
-        {/* Secondary Navigation */}
-        <div className="nav-section">
-          <div className="section-header" onClick={() => toggleSection("secondary")}>
-            <span className="section-title">TOOLS</span>
-            <ChevronRight 
-              className={`section-toggle ${expandedSections.secondary ? "expanded" : ""}`} 
-              size={16} 
-            />
-          </div>
-          
-          {expandedSections.secondary && (
-            <div className="nav-items">
-              {secondaryItems.map(item => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-                
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`nav-item ${active ? "active" : ""}`}
-                    onClick={onClose}
-                  >
-                    <div className="nav-item-content">
-                      <Icon className="nav-icon" size={20} />
-                      {!isCollapsed && <span className="nav-label">{item.label}</span>}
-                    </div>
-                    {active && !isCollapsed && (
-                      <div className="nav-item-indicator" />
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
         {/* Recent Notes (only when expanded) */}
         {!isCollapsed && recentNotes.length > 0 && (
           <div className="nav-section">
@@ -417,13 +371,6 @@ export default function Sidebar({ onClose }) {
           </button>
         </div>
         
-        {!isCollapsed && (
-          <div className="sidebar-status">
-            <div className="status-indicator online" />
-            <span className="status-text">Online</span>
-            <span className="status-version">v2.0</span>
-          </div>
-        )}
       </div>
 
       {/* Collapsed sidebar tooltip container */}

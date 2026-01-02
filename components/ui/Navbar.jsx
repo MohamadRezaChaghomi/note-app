@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Search, Bell, Settings, User, Menu, X, Moon, Sun } from "lucide-react";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Navbar({ onMenuClick, sidebarOpen }) {
   const { data: session } = useSession();
@@ -76,89 +77,10 @@ export default function Navbar({ onMenuClick, sidebarOpen }) {
         </div>
       </div>
 
-      {/* Center Section - Search */}
-      <div className="navbar-center">
-        <form onSubmit={handleSearch} className="navbar-search">
-          <Search className="navbar-search-icon" size={18} />
-          <input
-            type="text"
-            placeholder="Search notes, folders, tags..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="navbar-search-input"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={clearSearch}
-              className="navbar-search-clear"
-            >
-              ×
-            </button>
-          )}
-        </form>
-      </div>
-
       {/* Right Section */}
       <div className="navbar-right">
         {/* Dark Mode Toggle */}
-        <button
-          onClick={toggleDarkMode}
-          className="navbar-icon-btn"
-          title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-        >
-          {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
-
-        {/* Notifications */}
-        <div className="navbar-notifications" ref={notificationsRef}>
-          <button
-            onClick={toggleNotifications}
-            className="navbar-icon-btn"
-            title="Notifications"
-          >
-            <Bell size={20} />
-            {unreadCount > 0 && (
-              <span className="notification-badge">{unreadCount}</span>
-            )}
-          </button>
-
-          {showNotifications && (
-            <div className="notifications-dropdown">
-              <div className="notifications-header">
-                <h3>Notifications</h3>
-                <button className="mark-all-read">Mark all as read</button>
-              </div>
-              <div className="notifications-list">
-                {notifications.length > 0 ? (
-                  notifications.map(notification => (
-                    <div
-                      key={notification.id}
-                      className={`notification-item ${notification.unread ? 'unread' : ''}`}
-                    >
-                      <div className="notification-icon">
-                        <Bell size={16} />
-                      </div>
-                      <div className="notification-content">
-                        <div className="notification-title">{notification.title}</div>
-                        <div className="notification-message">{notification.message}</div>
-                        <div className="notification-time">{notification.time}</div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="no-notifications">
-                    <Bell size={32} />
-                    <p>No notifications</p>
-                  </div>
-                )}
-              </div>
-              <a href="/dashboard/notifications" className="notifications-footer">
-                View all notifications
-              </a>
-            </div>
-          )}
-        </div>
+        <ThemeToggle/>
 
         {/* Settings */}
         <a href="/dashboard/settings" className="navbar-icon-btn" title="Settings">

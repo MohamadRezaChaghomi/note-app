@@ -1,3 +1,4 @@
+// app/auth/reset-password/page.jsx
 "use client";
 
 import { Suspense } from "react";
@@ -14,7 +15,7 @@ function ResetPasswordContent() {
   const router = useRouter();
 
   const email = sp.get("email") || "";
-  const code = sp.get("code") || sp.get("token") || "";
+  const code = sp.get("code") || "";
 
   const [valid, setValid] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -46,7 +47,7 @@ function ResetPasswordContent() {
       setVerifying(false);
     }
     check();
-  }, [email, token]);
+  }, [email, code]);
 
   const checkPasswordStrength = (password) => {
     let strength = 0;
@@ -176,7 +177,7 @@ function ResetPasswordContent() {
             </p>
             <button
               onClick={() => router.push("/auth/login")}
-              className="primary-btn"
+              className="submit-btn primary"
             >
               Go to Login
             </button>
@@ -381,5 +382,4 @@ export default function ResetPasswordPage() {
       <ResetPasswordContent />
     </Suspense>
   );
-}
 }
