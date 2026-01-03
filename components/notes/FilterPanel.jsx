@@ -1,8 +1,11 @@
 "use client";
 
-import { X, Filter, Calendar, Tag, Folder, Flag } from "lucide-react";
 import { useState } from "react";
-import "@/styles/components/notes.css";
+import { 
+  Filter, X, Calendar, Tag, Folder, 
+  Star, Archive, Trash2, Clock 
+} from "lucide-react";
+import "@styles/components/notes/filter-panel.module.css";
 export default function FilterPanel({ filters, onFilterChange, onClear }) {
   const [localFilters, setLocalFilters] = useState(filters);
 
@@ -10,144 +13,209 @@ export default function FilterPanel({ filters, onFilterChange, onClear }) {
     onFilterChange(localFilters);
   };
 
-  const handleClear = () => {
-    setLocalFilters({
+  const handleReset = () => {
+    const resetFilters = {
       status: 'all',
       folder: null,
       tags: [],
       dateRange: null,
       priority: null
-    });
+    };
+    setLocalFilters(resetFilters);
     onClear();
   };
 
-  const tagOptions = ['Work', 'Personal', 'Important', 'Ideas', 'Meeting', 'Project'];
-  const folderOptions = ['Work', 'Personal', 'Archive', 'Projects'];
-  const priorityOptions = ['High', 'Medium', 'Low'];
+  const handleStatusChange = (status) => {
+    setLocalFilters(prev => ({ ...prev, status }));
+  };
+
+  const handleTagChange = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const tag = e.target.value.trim();
+      if (tag && !localFilters.tags.includes(tag)) {
+        setLocalFilters(prev => ({
+          ...prev,
+          tags: [...prev.tags, tag]
+        }));
+        e.target.value = '';
+      }
+    }
+  };
+
+  const removeTag = (tagToRemove) => {
+    setLocalFilters(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }));
+  };
+
+  const statusOptions = [
+    { id: 'all', label: 'All Notes', icon: Filter },
+    { id: 'starred', label: 'Starred', icon: Star },
+    { id: 'archived', label: 'Archived', icon: Archive },
+    { id: 'trashed', label: 'Trashed', icon: Trash2 }
+  ];
+
+  const priorityOptions = [
+    { id: 'high', label: 'High', color: 'bg-red-100 text-red-800' },
+    { id: 'medium', label: 'Medium', color: 'bg-yellow-100 text-yellow-800' },
+    { id: 'low', label: 'Low', color: 'bg-green-100 text-green-800' }
+  ];
+
+  // Mock folders - در واقعیت باید از API بیایند
+  const mockFolders = [
+    { id: '1', title: 'Personal', count: 12 },
+    { id: '2', title: 'Work', count: 8 },
+    { id: '3', title: 'Ideas', count: 5 },
+    { id: '4', title: 'Archive', count: 3 }
+  ];
 
   return (
     <div className="filter-panel">
       <div className="filter-header">
         <h3>
-          <Filter className="w-4 h-4 inline mr-2" />
+          <Filter className="w-5 h-5" />
           Filters
         </h3>
-        <button
-          onClick={handleClear}
-          className="clear-filters-btn"
-        >
+        <button onClick={handleReset} className="clear-all-btn">
           Clear All
         </button>
       </div>
 
-      <div className="filter-grid">
-        {/* Tags Filter */}
-        <div className="filter-group">
-          <label>
-            <Tag className="w-4 h-4 inline mr-2" />
-            Tags
-          </label>
-          <div className="tags-selector">
-            {tagOptions.map((tag) => (
+      <div className="filter-sections">
+        {/* Status Filter */}
+        <div className="filter-section">
+          <h4>Status</h4>
+          <div className="status-options">
+            {statusOptions.map((option) => (
               <button
-                key={tag}
-                onClick={() => {
-                  const newTags = localFilters.tags.includes(tag)
-                    ? localFilters.tags.filter(t => t !== tag)
-                    : [...localFilters.tags, tag];
-                  setLocalFilters(prev => ({ ...prev, tags: newTags }));
-                }}
-                className={`tag-option ${localFilters.tags.includes(tag) ? 'selected' : ''}`}
+                key={option.id}
+                onClick={() => handleStatusChange(option.id)}
+                className={`status-option ${localFilters.status === option.id ? 'active' : ''}`}
               >
-                {tag}
+                <option.icon className="w-4 h-4" />
+                <span>{option.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Priority Filter */}
+        <div className="filter-section">
+          <h4>Priority</h4>
+          <div className="priority-options">
+            <button
+              onClick={() => setLocalFilters(prev => ({ ...prev, priority: null }))}
+              className={`priority-option ${!localFilters.priority ? 'active' : ''}`}
+            >
+              All Priorities
+            </button>
+            {priorityOptions.map((option) => (
+              <button
+                key={option.id}
+                onClick={() => setLocalFilters(prev => ({ ...prev, priority: option.id }))}
+                className={`priority-option ${localFilters.priority === option.id ? 'active' : ''} ${option.color}`}
+              >
+                {option.label}
               </button>
             ))}
           </div>
         </div>
 
         {/* Folder Filter */}
-        <div className="filter-group">
-          <label>
-            <Folder className="w-4 h-4 inline mr-2" />
+        <div className="filter-section">
+          <h4>
+            <Folder className="w-4 h-4" />
             Folder
-          </label>
+          </h4>
           <select
             value={localFilters.folder || ''}
             onChange={(e) => setLocalFilters(prev => ({ 
               ...prev, 
               folder: e.target.value || null 
             }))}
-            className="filter-select"
+            className="folder-select"
           >
             <option value="">All Folders</option>
-            {folderOptions.map((folder) => (
-              <option key={folder} value={folder}>
-                {folder}
+            {mockFolders.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.title} ({folder.count})
               </option>
             ))}
           </select>
         </div>
 
-        {/* Date Range Filter */}
-        <div className="filter-group">
-          <label>
-            <Calendar className="w-4 h-4 inline mr-2" />
+        {/* Date Range */}
+        <div className="filter-section">
+          <h4>
+            <Calendar className="w-4 h-4" />
             Date Range
-          </label>
-          <div className="date-range-selector">
-            <select
-              value={localFilters.dateRange || ''}
-              onChange={(e) => setLocalFilters(prev => ({ 
-                ...prev, 
-                dateRange: e.target.value || null 
-              }))}
-              className="filter-select"
-            >
-              <option value="">Any Time</option>
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-              <option value="year">This Year</option>
-            </select>
+          </h4>
+          <div className="date-inputs">
+            <div className="date-input-group">
+              <label>From</label>
+              <input
+                type="date"
+                value={localFilters.dateRange?.start || ''}
+                onChange={(e) => setLocalFilters(prev => ({
+                  ...prev,
+                  dateRange: { ...prev.dateRange, start: e.target.value }
+                }))}
+                className="date-input"
+              />
+            </div>
+            <div className="date-input-group">
+              <label>To</label>
+              <input
+                type="date"
+                value={localFilters.dateRange?.end || ''}
+                onChange={(e) => setLocalFilters(prev => ({
+                  ...prev,
+                  dateRange: { ...prev.dateRange, end: e.target.value }
+                }))}
+                className="date-input"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Priority Filter */}
-        <div className="filter-group">
-          <label>
-            <Flag className="w-4 h-4 inline mr-2" />
-            Priority
-          </label>
-          <select
-            value={localFilters.priority || ''}
-            onChange={(e) => setLocalFilters(prev => ({ 
-              ...prev, 
-              priority: e.target.value || null 
-            }))}
-            className="filter-select"
-          >
-            <option value="">All Priorities</option>
-            {priorityOptions.map((priority) => (
-              <option key={priority} value={priority}>
-                {priority}
-              </option>
-            ))}
-          </select>
+        {/* Tags */}
+        <div className="filter-section">
+          <h4>
+            <Tag className="w-4 h-4" />
+            Tags
+          </h4>
+          <input
+            type="text"
+            placeholder="Add tags (press Enter)"
+            onKeyDown={handleTagChange}
+            className="tag-input"
+          />
+          {localFilters.tags.length > 0 && (
+            <div className="selected-tags">
+              {localFilters.tags.map((tag, index) => (
+                <span key={index} className="tag">
+                  {tag}
+                  <button
+                    onClick={() => removeTag(tag)}
+                    className="remove-tag"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="filter-actions">
-        <button
-          onClick={handleClear}
-          className="secondary-btn"
-        >
-          Clear
-        </button>
-        <button
-          onClick={handleApply}
-          className="primary-btn"
-        >
+        <button onClick={handleApply} className="apply-btn">
           Apply Filters
+        </button>
+        <button onClick={handleReset} className="reset-btn">
+          Reset
         </button>
       </div>
     </div>

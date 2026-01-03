@@ -43,9 +43,10 @@ import "@/styles/sidebar.css";
 // Navigation items with icons and badges
 const mainItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home, exact: true },
-  { href: "/dashboard/notes", label: "Notes", icon: FileText, badge: "count" },
-  { href: "/dashboard/folders", label: "Folders", icon: Folder, badge: "12" },
-  { href: "/dashboard/report", label: "Reports", icon: BarChart3, badge: "8" },
+  { href: "/dashboard/notes", label: "Notes", icon: FileText },
+  { href: "/dashboard/folders", label: "Folders", icon: Folder },
+  { href: "/dashboard/tags", label: "Tags", icon: Tag },
+  { href: "/dashboard/report", label: "Reports", icon: BarChart3 },
   { href: "/dashboard/search", label: "Search", icon: Search },
 ];
 
@@ -62,6 +63,7 @@ export default function Sidebar({ onClose }) {
   const { data: session } = useSession();
   const [notesCount, setNotesCount] = useState(0);
   const [foldersCount, setFoldersCount] = useState(0);
+  const [tagsCount, setTagsCount] = useState(0);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
     main: true,
@@ -74,20 +76,17 @@ export default function Sidebar({ onClose }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [notesRes, foldersRes, recentRes] = await Promise.all([
-          fetch("/api/notes?limit=1"),
-          fetch("/api/folders?limit=1"),
-          fetch("/api/notes?limit=3&sort=-createdAt")
+        const [reportRes, recentRes] = await Promise.all([
+          fetch('/api/report'),
+          fetch('/api/notes?limit=3&sort=-createdAt')
         ]);
 
-        if (notesRes.ok) {
-          const notesData = await notesRes.json();
-          setNotesCount(notesData.pagination?.total || 0);
-        }
-
-        if (foldersRes.ok) {
-          const foldersData = await foldersRes.json();
-          setFoldersCount(foldersData.pagination?.total || 0);
+        if (reportRes.ok) {
+          const r = await reportRes.json();
+          const summary = r.systemSummary || {};
+          setNotesCount(summary.totalNotes || 0);
+          setFoldersCount(summary.totalFolders || 0);
+          setTagsCount(summary.totalTags || 0);
         }
 
         if (recentRes.ok) {
@@ -126,13 +125,10 @@ export default function Sidebar({ onClose }) {
 
   // Get badge text
   const getBadgeText = (item) => {
-    if (item.badge === "count" && item.href === "/dashboard/notes") {
-      return notesCount > 99 ? "99+" : notesCount.toString();
-    }
-    if (item.badge === "count" && item.href === "/dashboard/folders") {
-      return foldersCount > 99 ? "99+" : foldersCount.toString();
-    }
-    return item.badge;
+    if (item.href === '/dashboard/notes') return notesCount > 99 ? '99+' : String(notesCount);
+    if (item.href === '/dashboard/folders') return foldersCount > 99 ? '99+' : String(foldersCount);
+    if (item.href === '/dashboard/tags') return tagsCount > 99 ? '99+' : String(tagsCount);
+    return null;
   };
 
   // Format time ago
@@ -154,36 +150,6 @@ export default function Sidebar({ onClose }) {
 
   return (
     <aside className={`sidebar`}>
-      {/* Sidebar Header */}
-      <div className="sidebar-header">
-        <div className="sidebar-logo">
-          <div className="logo-icon">
-            <Sparkles size={24} />
-          </div>
-          {!isCollapsed && (
-            <div className="logo-text">
-              <h1>Web Notes</h1>
-              <span className="logo-subtitle">Pro</span>
-            </div>
-          )}
-        </div>
-        
-        <button 
-          className="sidebar-toggle"
-          onClick={toggleSidebar}
-          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {isCollapsed ? <ChevronRight size={20} /> : <ChevronDown size={20} />}
-        </button>
-        
-        <button 
-          className="sidebar-close"
-          onClick={onClose}
-          title="Close sidebar"
-        >
-          <X size={20} />
-        </button>
-      </div>
 
       {/* Quick Actions */}
       {!isCollapsed && (
@@ -206,6 +172,11 @@ export default function Sidebar({ onClose }) {
               <Folder size={16} />
               <span>{foldersCount}</span>
               <span>Folders</span>
+            </div>
+            <div className="quick-stat">
+              <Tag size={16} />
+              <span>{tagsCount}</span>
+              <span>Tags</span>
             </div>
           </div>
         </div>

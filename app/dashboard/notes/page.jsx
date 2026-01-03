@@ -1,21 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
   Plus, Search, Filter, Star, Archive, Trash2, Folder, 
   Grid, List, Loader2, Calendar, Tag, MoreVertical,
   ChevronRight, ChevronLeft, Eye, Edit, Download,
   Sparkles, Zap, TrendingUp, X, Check, SortAsc,
-  Grid3x3, Rows, Columns, SlidersHorizontal
+  Grid3x3, Rows, Columns, SlidersHorizontal, RefreshCw,
+  Pin, PinOff, Clock, AlertCircle, Users
 } from "lucide-react";
 import { toast } from "sonner";
 import NoteCard from "@/components/notes/NoteCard";
 import NoteGrid from "@/components/notes/NoteGrid";
 import NoteList from "@/components/notes/NoteList";
 import FilterPanel from "@/components/notes/FilterPanel";
+import AdvancedFilterPanel from "@/components/notes/AdvancedFilterPanel";
 import BulkActions from "@/components/notes/BulkActions";
 import EmptyState from "@/components/notes/EmptyState";
+import QuickStats from "@/components/notes/QuickStats";
 import "@/styles/notes-page.css";
 
 export default function NotesPage() {
@@ -24,64 +27,137 @@ export default function NotesPage() {
   
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [pagination, setPagination] = useState(null);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list' | 'compact'
+  const [viewMode, setViewMode] = useState('grid');
   const [showFilters, setShowFilters] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedNotes, setSelectedNotes] = useState([]);
   const [bulkMode, setBulkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [sortBy, setSortBy] = useState('updatedAt_desc');
-  
+  const [stats, setStats] = useState({
+    total: 0,
+    starred: 0,
+    archived: 0,
+    trashed: 0,
+    pinned: 0
+  });
+
   const [filters, setFilters] = useState({
-    status: 'all', // 'all', 'starred', 'archived', 'trashed'
+    status: 'all',
     folder: null,
     tags: [],
     dateRange: null,
-    priority: null
+    priority: null,
+    showArchived: false,
+    showTrashed: false
   });
 
-  const loadNotes = async (page = 1) => {
+  const loadNotes = useCallback(async (page = 1, forceRefresh = false) => {
     try {
-      setLoading(true);
+      if (forceRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       
       const params = new URLSearchParams({
-        page,
-        limit: viewMode === 'compact' ? 50 : viewMode === 'list' ? 20 : 12,
+        page: page.toString(),
+        limit: getLimitByViewMode(),
         sort: sortBy,
-        search: searchQuery,
-        ...Object.fromEntries(
-          Object.entries(filters).filter(([_, value]) => 
-            value !== null && value !== '' && (!Array.isArray(value) || value.length > 0)
-          )
-        )
+        ...(searchQuery && { search: searchQuery }),
+        ...(filters.status !== 'all' && { status: filters.status }),
+        ...(filters.folder && { folderId: filters.folder }),
+        ...(filters.tags.length > 0 && { tags: filters.tags.join(',') }),
+        ...(filters.priority && { priority: filters.priority }),
+        ...(filters.showArchived && { showArchived: 'true' }),
+        ...(filters.showTrashed && { withTrashed: 'true' })
       });
+
+      if (filters.dateRange?.start) params.append('dateRange', `${filters.dateRange.start},${filters.dateRange.end || ''}`);
       
       const res = await fetch(`/api/notes?${params}`);
-      if (!res.ok) throw new Error('Failed to load notes');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Error ${res.status}: Failed to load notes`);
+      }
       
       const data = await res.json();
-      setNotes(data.notes || []);
-      // Debug: log loaded note ids to help trace 404 link issues
-      try {
-        console.log('Loaded notes IDs:', (data.notes || []).map(n => n._id));
-      } catch (e) {
-        console.log('Loaded notes (no ids)');
+      
+      if (!data.ok) {
+        throw new Error(data.message || 'Failed to load notes');
       }
-      setPagination(data.pagination);
+      
+      setNotes(data.notes || []);
+      setPagination(data.pagination || null);
+      
+      // Update stats
+      if (data.pagination) {
+        setStats(prev => ({
+          ...prev,
+          total: data.pagination.total || 0
+        }));
+      }
       
     } catch (err) {
+      console.error('Load notes error:', err);
       setError(err.message);
-      toast.error('Failed to load notes');
+      toast.error(err.message || 'Failed to load notes');
     } finally {
       setLoading(false);
+      setRefreshing(false);
+    }
+  }, [filters, sortBy, viewMode, searchQuery]);
+
+  const getLimitByViewMode = () => {
+    switch(viewMode) {
+      case 'compact': return '50';
+      case 'list': return '20';
+      default: return '12';
     }
   };
 
+  const refreshStats = useCallback(async () => {
+    try {
+      const [starredRes, archivedRes, trashedRes, pinnedRes] = await Promise.all([
+        fetch('/api/notes?status=starred&limit=1'),
+        fetch('/api/notes?status=archived&limit=1'),
+        fetch('/api/notes?status=trashed&limit=1'),
+        fetch('/api/notes?status=pinned&limit=1')
+      ]);
+
+      const [starredData, archivedData, trashedData, pinnedData] = await Promise.all([
+        starredRes.json(),
+        archivedRes.json(),
+        trashedRes.json(),
+        pinnedRes.json()
+      ]);
+
+      setStats({
+        total: pagination?.total || 0,
+        starred: starredData.pagination?.total || 0,
+        archived: archivedData.pagination?.total || 0,
+        trashed: trashedData.pagination?.total || 0,
+        pinned: pinnedData.pagination?.total || 0
+      });
+    } catch (err) {
+      console.error('Refresh stats error:', err);
+    }
+  }, [pagination]);
+
   useEffect(() => {
     loadNotes();
-  }, [filters, sortBy, viewMode, searchQuery]);
+  }, [loadNotes]);
+
+  useEffect(() => {
+    if (notes.length > 0) {
+      refreshStats();
+    }
+  }, [notes, refreshStats]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -94,33 +170,70 @@ export default function NotesPage() {
     setSearchQuery('');
   };
 
+  const handleRefresh = () => {
+    loadNotes(pagination?.page || 1, true);
+  };
+
   const handleNoteAction = async (noteId, action, data = {}) => {
     try {
       if (action === 'delete') {
-        if (!confirm('Are you sure you want to delete this note?')) return;
+        if (!confirm('Are you sure you want to permanently delete this note? This action cannot be undone.')) return;
       }
 
-      const res = await fetch(`/api/notes/${noteId}`, {
-        method: action === 'delete' ? 'DELETE' : 'PATCH',
+      let endpoint = `/api/notes/${noteId}`;
+      let method = 'PATCH';
+      let body = data;
+
+      switch(action) {
+        case 'delete':
+          endpoint = `${endpoint}?mode=hard&force=true`;
+          method = 'DELETE';
+          body = undefined;
+          break;
+        case 'trash':
+          endpoint = `${endpoint}?mode=trash`;
+          method = 'DELETE';
+          body = undefined;
+          break;
+        case 'restore':
+          endpoint = `${endpoint}?mode=restore`;
+          method = 'DELETE';
+          body = undefined;
+          break;
+        case 'pin':
+          body = { pinned: true };
+          break;
+        case 'unpin':
+          body = { pinned: false };
+          break;
+      }
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: action === 'delete' ? undefined : JSON.stringify(data)
+        body: body ? JSON.stringify(body) : undefined
       });
 
-      const body = await res.json().catch(() => ({}));
+      const result = await res.json();
+      
       if (!res.ok) {
-        toast.error(body.message || `Action failed (${res.status})`);
-        return;
+        throw new Error(result.message || `Action failed (${res.status})`);
       }
 
       toast.success(getSuccessMessage(action));
-      // optimistic update: remove or refresh
+      
+      // Optimistic update
       if (action === 'delete') {
         setNotes(prev => prev.filter(n => n._id !== noteId));
       } else {
-        // refresh list
-        loadNotes(pagination?.page || 1);
+        // Refresh the specific note
+        setNotes(prev => prev.map(note => 
+          note._id === noteId ? { ...note, ...body, ...result.note } : note
+        ));
       }
+      
       setSelectedNotes(prev => prev.filter(id => id !== noteId));
+      
     } catch (err) {
       console.error('Note action error:', err);
       toast.error(err.message || 'Action failed');
@@ -131,21 +244,56 @@ export default function NotesPage() {
     if (selectedNotes.length === 0) return;
     
     try {
-      const promises = selectedNotes.map(noteId =>
-        fetch(`/api/notes/${noteId}`, {
-          method: action === 'delete' ? 'DELETE' : 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: action === 'delete' ? undefined : JSON.stringify({ [action]: true })
-        })
-      );
+      let endpoint = '/api/notes';
+      let method = 'PATCH';
+      let body = { noteIds: selectedNotes };
+
+      switch(action) {
+        case 'delete':
+          if (!confirm(`Are you sure you want to permanently delete ${selectedNotes.length} notes? This action cannot be undone.`)) return;
+          // Note: Bulk delete might need separate implementation
+          toast.error('Bulk delete not implemented yet');
+          return;
+        case 'trash':
+          body.updates = { isTrashed: true };
+          break;
+        case 'archive':
+          body.updates = { isArchived: true };
+          break;
+        case 'star':
+          body.updates = { isStarred: true };
+          break;
+        case 'unstar':
+          body.updates = { isStarred: false };
+          break;
+        case 'pin':
+          body.updates = { pinned: true };
+          break;
+        case 'unpin':
+          body.updates = { pinned: false };
+          break;
+      }
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const result = await res.json();
       
-      await Promise.all(promises);
+      if (!res.ok) {
+        throw new Error(result.message || 'Bulk action failed');
+      }
+
       toast.success(`${selectedNotes.length} notes ${getBulkActionText(action)}`);
       setSelectedNotes([]);
       setBulkMode(false);
-      loadNotes();
+      loadNotes(pagination?.page || 1);
+      
     } catch (err) {
-      toast.error('Bulk action failed');
+      console.error('Bulk action error:', err);
+      toast.error(err.message || 'Bulk action failed');
     }
   };
 
@@ -157,7 +305,9 @@ export default function NotesPage() {
       unarchive: 'Note unarchived',
       trash: 'Note moved to trash',
       restore: 'Note restored',
-      delete: 'Note deleted'
+      delete: 'Note permanently deleted',
+      pin: 'Note pinned',
+      unpin: 'Note unpinned'
     };
     return messages[action] || 'Action completed';
   };
@@ -165,9 +315,12 @@ export default function NotesPage() {
   const getBulkActionText = (action) => {
     const texts = {
       star: 'starred',
+      unstar: 'unstarred',
       archive: 'archived',
       trash: 'moved to trash',
-      delete: 'deleted'
+      delete: 'deleted',
+      pin: 'pinned',
+      unpin: 'unpinned'
     };
     return texts[action] || 'updated';
   };
@@ -185,15 +338,30 @@ export default function NotesPage() {
     { value: 'createdAt_desc', label: 'Newest First', icon: Sparkles },
     { value: 'title_asc', label: 'Title A-Z', icon: SortAsc },
     { value: 'priority_desc', label: 'Priority', icon: TrendingUp },
-    { value: 'starred_desc', label: 'Most Starred', icon: Star }
+    { value: 'starred_desc', label: 'Most Starred', icon: Star },
+    { value: 'pinnedAt_desc', label: 'Pinned First', icon: Pin }
   ];
 
   const filterOptions = [
-    { id: 'all', label: 'All Notes', icon: Grid3x3, count: pagination?.total || 0 },
-    { id: 'starred', label: 'Starred', icon: Star, count: notes.filter(n => n.isStarred).length },
-    { id: 'archived', label: 'Archived', icon: Archive, count: notes.filter(n => n.isArchived).length },
-    { id: 'trashed', label: 'Trash', icon: Trash2, count: notes.filter(n => n.isTrashed).length }
+    { id: 'all', label: 'All Notes', icon: Grid3x3, count: stats.total },
+    { id: 'starred', label: 'Starred', icon: Star, count: stats.starred },
+    { id: 'archived', label: 'Archived', icon: Archive, count: stats.archived },
+    { id: 'trashed', label: 'Trash', icon: Trash2, count: stats.trashed },
+    { id: 'pinned', label: 'Pinned', icon: Pin, count: stats.pinned }
   ];
+
+  if (loading && !refreshing) {
+    return (
+      <div className="notes-page">
+        <div className="loading-fullscreen">
+          <div className="loader-container">
+            <Loader2 className="w-12 h-12 animate-spin text-primary-600" />
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading your notes...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="notes-page">
@@ -204,24 +372,25 @@ export default function NotesPage() {
             <div className="page-title">
               <h1>Notes</h1>
               <p className="subtitle">
-                {pagination?.total || 0} notes • {filters.status === 'all' ? 'All' : filters.status}
+                {stats.total.toLocaleString()} notes • {filters.status === 'all' ? 'All' : filters.status} • {viewMode} view
               </p>
             </div>
             
             {/* Quick Stats */}
-            <div className="quick-stats">
-              <div className="stat">
-                <Star className="w-4 h-4" />
-                <span>{notes.filter(n => n.isStarred).length} starred</span>
-              </div>
-              <div className="stat">
-                <Zap className="w-4 h-4" />
-                <span>{notes.filter(n => !n.isArchived && !n.isTrashed).length} active</span>
-              </div>
-            </div>
+            <QuickStats stats={stats} />
           </div>
           
           <div className="header-right">
+            {/* Refresh Button */}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="refresh-btn"
+              title="Refresh"
+            >
+              <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            
             {/* New Note Button */}
             <button
               onClick={() => router.push('/dashboard/notes/new')}
@@ -236,9 +405,12 @@ export default function NotesPage() {
               <BulkActions
                 count={selectedNotes.length}
                 onStar={() => handleBulkAction('star')}
+                onUnstar={() => handleBulkAction('unstar')}
                 onArchive={() => handleBulkAction('archive')}
                 onTrash={() => handleBulkAction('trash')}
                 onDelete={() => handleBulkAction('delete')}
+                onPin={() => handleBulkAction('pin')}
+                onUnpin={() => handleBulkAction('unpin')}
                 onCancel={() => {
                   setSelectedNotes([]);
                   setBulkMode(false);
@@ -258,18 +430,20 @@ export default function NotesPage() {
               placeholder="Search notes by title, content, or tags..."
               defaultValue={searchQuery}
               className="search-input"
+              disabled={loading}
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={handleClearSearch}
                 className="clear-search-btn"
+                disabled={loading}
               >
                 <X className="w-4 h-4" />
               </button>
             )}
-            <button type="submit" className="search-btn">
-              Search
+            <button type="submit" className="search-btn" disabled={loading}>
+              {loading ? 'Searching...' : 'Search'}
             </button>
           </div>
         </form>
@@ -284,6 +458,7 @@ export default function NotesPage() {
                   key={filter.id}
                   onClick={() => setFilters(prev => ({ ...prev, status: filter.id }))}
                   className={`filter-tab ${filters.status === filter.id ? 'active' : ''}`}
+                  disabled={loading}
                 >
                   <filter.icon className="w-4 h-4" />
                   <span>{filter.label}</span>
@@ -301,6 +476,7 @@ export default function NotesPage() {
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="sort-select"
+                disabled={loading}
               >
                 {sortOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -318,6 +494,7 @@ export default function NotesPage() {
                 onClick={() => setViewMode('grid')}
                 className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
                 title="Grid View"
+                disabled={loading}
               >
                 <Grid className="w-4 h-4" />
               </button>
@@ -325,6 +502,7 @@ export default function NotesPage() {
                 onClick={() => setViewMode('list')}
                 className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
                 title="List View"
+                disabled={loading}
               >
                 <List className="w-4 h-4" />
               </button>
@@ -332,24 +510,43 @@ export default function NotesPage() {
                 onClick={() => setViewMode('compact')}
                 className={`view-btn ${viewMode === 'compact' ? 'active' : ''}`}
                 title="Compact View"
+                disabled={loading}
               >
                 <Columns className="w-4 h-4" />
               </button>
             </div>
             
-            {/* Filter Button */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`filter-btn ${showFilters ? 'active' : ''}`}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              Filters
-              {Object.values(filters).some(v => 
-                v !== null && v !== '' && (!Array.isArray(v) || v.length > 0) && v !== 'all'
-              ) && (
-                <span className="filter-indicator" />
-              )}
-            </button>
+            {/* Filter Buttons */}
+            <div className="filter-buttons">
+              <button
+                onClick={() => {
+                  setShowFilters(!showFilters);
+                  setShowAdvancedFilters(false);
+                }}
+                className={`filter-btn ${showFilters ? 'active' : ''}`}
+                disabled={loading}
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+                {Object.values(filters).some(v => 
+                  v !== null && v !== '' && (!Array.isArray(v) || v.length > 0) && v !== 'all'
+                ) && (
+                  <span className="filter-indicator" />
+                )}
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowAdvancedFilters(!showAdvancedFilters);
+                  setShowFilters(false);
+                }}
+                className={`filter-btn ${showAdvancedFilters ? 'active' : ''}`}
+                disabled={loading}
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                Advanced
+              </button>
+            </div>
             
             {/* Bulk Select */}
             <button
@@ -358,6 +555,7 @@ export default function NotesPage() {
                 if (bulkMode) setSelectedNotes([]);
               }}
               className={`bulk-select-btn ${bulkMode ? 'active' : ''}`}
+              disabled={loading}
             >
               {bulkMode ? <Check className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
               {bulkMode ? 'Done' : 'Select'}
@@ -366,7 +564,7 @@ export default function NotesPage() {
         </div>
       </div>
       
-      {/* Filter Panel */}
+      {/* Filter Panels */}
       {showFilters && (
         <FilterPanel
           filters={filters}
@@ -376,39 +574,58 @@ export default function NotesPage() {
             folder: null,
             tags: [],
             dateRange: null,
-            priority: null
+            priority: null,
+            showArchived: false,
+            showTrashed: false
           })}
+        />
+      )}
+      
+      {showAdvancedFilters && (
+        <AdvancedFilterPanel
+          onApplyFilters={(advancedFilters) => {
+            setFilters(prev => ({ ...prev, ...advancedFilters }));
+            setShowAdvancedFilters(false);
+          }}
+          onClear={() => {
+            setFilters(prev => ({
+              ...prev,
+              priority: null,
+              tags: [],
+              dateRange: null,
+              folder: null,
+              showArchived: false,
+              showTrashed: false
+            }));
+            setShowAdvancedFilters(false);
+          }}
+          initialFilters={filters}
         />
       )}
       
       {/* Main Content */}
       <div className="notes-content">
-        {/* Loading State */}
-        {loading && notes.length === 0 && (
-          <div className="loading-state">
-            <div className="loader">
-              <Loader2 className="w-8 h-8 animate-spin" />
-            </div>
-            <p>Loading your notes...</p>
-          </div>
-        )}
-        
         {/* Error State */}
         {error && (
           <div className="error-state">
             <div className="error-icon">
-              <X className="w-12 h-12" />
+              <AlertCircle className="w-12 h-12 text-red-500" />
             </div>
             <h3>Failed to load notes</h3>
-            <p>{error}</p>
-            <button onClick={() => loadNotes()} className="retry-btn">
-              Try Again
-            </button>
+            <p className="error-message">{error}</p>
+            <div className="error-actions">
+              <button onClick={() => loadNotes(pagination?.page || 1)} className="retry-btn">
+                Try Again
+              </button>
+              <button onClick={() => setError(null)} className="dismiss-btn">
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
         
         {/* Empty State */}
-        {!loading && notes.length === 0 && (
+        {!loading && !error && notes.length === 0 && (
           <EmptyState
             filters={filters}
             onClearFilters={() => setFilters({
@@ -416,14 +633,16 @@ export default function NotesPage() {
               folder: null,
               tags: [],
               dateRange: null,
-              priority: null
+              priority: null,
+              showArchived: false,
+              showTrashed: false
             })}
             onCreateNote={() => router.push('/dashboard/notes/new')}
           />
         )}
         
         {/* Notes Display */}
-        {!loading && notes.length > 0 && (
+        {!loading && !error && notes.length > 0 && (
           <>
             {/* Select All */}
             {bulkMode && (
@@ -519,21 +738,26 @@ export default function NotesPage() {
                         </div>
                       )}
                       <div className="compact-content">
-                        <h4 className="compact-title">{note.title || 'Untitled'}</h4>
+                        <div className="compact-header">
+                          <h4 className="compact-title">{note.title || 'Untitled'}</h4>
+                          <div className="compact-icons">
+                            {note.isStarred && <Star className="w-3 h-3 text-yellow-500" />}
+                            {note.isPinned && <Pin className="w-3 h-3 text-blue-500" />}
+                            {note.isArchived && <Archive className="w-3 h-3 text-gray-500" />}
+                          </div>
+                        </div>
                         <div className="compact-meta">
                           <span className="compact-date">
+                            <Clock className="w-3 h-3 inline mr-1" />
                             {new Date(note.updatedAt).toLocaleDateString('fa-IR')}
                           </span>
                           {note.tags?.length > 0 && (
                             <span className="compact-tags">
+                              <Tag className="w-3 h-3 inline mr-1" />
                               {note.tags.slice(0, 2).map(tag => `#${tag}`).join(', ')}
                             </span>
                           )}
                         </div>
-                      </div>
-                      <div className="compact-actions">
-                        {note.isStarred && <Star className="w-3 h-3 text-yellow-500" />}
-                        {note.isArchived && <Archive className="w-3 h-3 text-blue-500" />}
                       </div>
                     </div>
                   ))}
@@ -546,7 +770,7 @@ export default function NotesPage() {
               <div className="pagination">
                 <button
                   onClick={() => loadNotes(pagination.page - 1)}
-                  disabled={pagination.page === 1}
+                  disabled={pagination.page === 1 || loading}
                   className="pagination-btn prev"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -570,6 +794,7 @@ export default function NotesPage() {
                       <button
                         key={pageNum}
                         onClick={() => loadNotes(pageNum)}
+                        disabled={loading}
                         className={`page-btn ${pagination.page === pageNum ? 'active' : ''}`}
                       >
                         {pageNum}
@@ -580,7 +805,7 @@ export default function NotesPage() {
                 
                 <button
                   onClick={() => loadNotes(pagination.page + 1)}
-                  disabled={pagination.page === pagination.totalPages}
+                  disabled={pagination.page === pagination.totalPages || loading}
                   className="pagination-btn next"
                 >
                   Next
@@ -589,6 +814,7 @@ export default function NotesPage() {
                 
                 <div className="page-info">
                   Page {pagination.page} of {pagination.totalPages}
+                  <span className="total-notes"> • {pagination.total.toLocaleString()} notes</span>
                 </div>
               </div>
             )}
@@ -614,6 +840,13 @@ export default function NotesPage() {
               title="Star selected"
             >
               <Star className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleBulkAction('pin')}
+              className="floating-action-btn"
+              title="Pin selected"
+            >
+              <Pin className="w-4 h-4" />
             </button>
             <button
               onClick={() => handleBulkAction('archive')}

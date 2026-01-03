@@ -113,12 +113,11 @@ export default function RegisterPage() {
           router.push("/auth/login?registered=1");
         }, 2000);
       } else {
-        const msg = data.error === "EMAIL_EXISTS"
-          ? "این ایمیل قبلا ثبت شده است. لطفاً از ایمیل دیگری استفاده کنید یا وارد شوید."
-          : data.error === "RECAPTCHA_FAILED"
-            ? "تأیید امنیتی ناموفق بود. لطفا دوباره تلاش کنید."
-            : "ثبت‌نام ناموفق بود. لطفا دوباره تلاش کنید.";
-
+          const msg = data.error === "EMAIL_EXISTS"
+              ? "This email is already registered. Please use another email or log in."
+              : data.error === "RECAPTCHA_FAILED"
+                  ? "Security verification failed. Please try again."
+                  : "Registration failed. Please try again.";
         setErrors({ submit: msg });
         setRecaptchaToken("");
       }

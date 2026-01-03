@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { Bell, Shield, Palette, User, Save, ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -27,6 +27,9 @@ export default function SettingsPage() {
     }
   });
   const [saved, setSaved] = useState(false);
+  const [name, setName] = useState(session?.user?.name || "");
+  const [savingName, setSavingName] = useState(false);
+  const [nameMessage, setNameMessage] = useState(null);
 
   const handleSettingChange = useCallback((section, key, value) => {
     setSettings(prev => ({
@@ -49,6 +52,43 @@ export default function SettingsPage() {
       console.error("Failed to save settings:", error);
     }
   }, []);
+
+  useEffect(() => {
+    setName(session?.user?.name || "");
+  }, [session?.user?.name]);
+
+  const handleNameSave = useCallback(async () => {
+    if (!name || !name.trim()) {
+      setNameMessage({ ok: false, text: "Name cannot be empty" });
+      return;
+    }
+
+    try {
+      setSavingName(true);
+      setNameMessage(null);
+
+      const res = await fetch('/api/auth/update-name', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() })
+      });
+
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        setNameMessage({ ok: true, text: 'Name updated' });
+        // small refresh to update session display in UI
+        setTimeout(() => window.location.reload(), 600);
+      } else {
+        setNameMessage({ ok: false, text: json?.error || 'Update failed' });
+      }
+    } catch (error) {
+      console.error('Update name failed:', error);
+      setNameMessage({ ok: false, text: 'Update failed' });
+    } finally {
+      setSavingName(false);
+      setTimeout(() => setNameMessage(null), 3000);
+    }
+  }, [name]);
 
   const navItems = [
     { id: "general", label: "General", icon: User },
@@ -82,13 +122,24 @@ export default function SettingsPage() {
 
             <div className="setting-group">
               <label htmlFor="name">Full Name</label>
-              <input
-                type="text"
-                id="name"
-                value={session?.user?.name || ""}
-                disabled
-                className="setting-input"
-              />
+              <div className="name-row">
+                <input
+                  type="text"
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="setting-input"
+                />
+                <Button onClick={handleNameSave} disabled={savingName} className="btn-inline-save">
+                  {savingName ? 'Saving...' : 'Save Name'}
+                </Button>
+              </div>
+              {nameMessage && (
+                <div className={`name-msg ${nameMessage.ok ? 'ok' : 'error'}`}>{nameMessage.text}</div>
+              )}
+              <div className="change-password-row">
+                <Link href="/auth/reset-password" className="change-password-link">Change Password</Link>
+              </div>
             </div>
           </div>
         );

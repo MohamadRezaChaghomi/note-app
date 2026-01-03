@@ -1,410 +1,425 @@
-// app/dashboard/notes/[id]/page.jsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Edit, Star, Archive, Trash2, Calendar, Folder, Tag, AlertCircle, Save, X, Loader2 } from "lucide-react";
-import "@/styles/folder-detail.css";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Folder,
+  Edit,
+  Trash2,
+  Plus,
+  FileText,
+  FolderOpen,
+  Archive,
+  Users,
+  Clock,
+  Lock,
+  Unlock,
+  MoreVertical,
+  ChevronRight,
+  BarChart,
+  Copy,
+  Move,
+  Download,
+  Share2,
+  Tag,
+  Calendar,
+  Eye,
+  EyeOff,
+  Loader2,
+  Grid,
+  List,
+  Search,
+  Filter,
+} from "lucide-react";
+import { toast } from "sonner";
+import NotesList from "@/components/notes/NotesList";
+import SubfoldersGrid from "@/components/folders/SubfoldersGrid";
+import FolderActions from "@/components/folders/FolderActions";
+import FolderInfoCard from "@/components/folders/FolderInfoCard";
 
-export default function NoteDetailPage() {
-  const params = useParams();
+export default function FolderDetailPage({ params }) {
   const router = useRouter();
-  const noteId = params.id;
-
-  const [note, setNote] = useState(null);
+  const { id } = params;
+  
+  const [folder, setFolder] = useState(null);
+  const [notes, setNotes] = useState([]);
+  const [subfolders, setSubfolders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    content: "",
-    color: "#FFFFFF",
-    folderId: ""
+  const [notesView, setNotesView] = useState("grid"); // 'grid' | 'list'
+  const [searchQuery, setSearchQuery] = useState("");
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [stats, setStats] = useState({
+    totalNotes: 0,
+    archivedNotes: 0,
+    subfoldersCount: 0,
   });
-  const [folders, setFolders] = useState([]);
 
-  useEffect(() => {
-    if (noteId) {
-      loadNote();
-      loadFolders();
-    }
-  }, [noteId]);
-
-  const loadNote = async () => {
+  const loadFolderData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/notes/${noteId}`);
-      if (!res.ok) {
-        throw new Error("Note not found");
+      
+      const [folderRes, notesRes, subfoldersRes, statsRes] = await Promise.all([
+        fetch(`/api/folders/${id}`),
+        fetch(`/api/folders/${id}/notes`),
+        fetch(`/api/folders?parentId=${id}&withNoteCount=true`),
+        fetch(`/api/folders/${id}/stats`),
+      ]);
+
+      if (!folderRes.ok) {
+        throw new Error("Folder not found");
       }
-      const data = await res.json();
-      setNote(data.note);
-      setFormData({
-        title: data.note.title || "",
-        description: data.note.description || "",
-        content: data.note.content || "",
-        color: data.note.color || "#FFFFFF",
-        folderId: data.note.folderId || ""
+
+      const folderData = await folderRes.json();
+      const notesData = await notesRes.json();
+      const subfoldersData = await subfoldersRes.json();
+      const statsData = await statsRes.json();
+
+      setFolder(folderData.folder);
+      setNotes(notesData.notes || []);
+      setSubfolders(subfoldersData.folders || []);
+      setStats(statsData.stats || {
+        totalNotes: notesData.notes?.length || 0,
+        archivedNotes: 0,
+        subfoldersCount: subfoldersData.folders?.length || 0,
       });
-    } catch (err) {
-      setError(err.message);
+    } catch (error) {
+      console.error("Load folder error:", error);
+      toast.error(error.message || "Failed to load folder");
+      router.push("/folders");
     } finally {
       setLoading(false);
     }
+  }, [id, router]);
+
+  useEffect(() => {
+    if (id) {
+      loadFolderData();
+    }
+  }, [id, loadFolderData]);
+
+  const handleCreateNote = () => {
+    router.push(`/notes/new?folderId=${id}`);
   };
 
-  const loadFolders = async () => {
-    try {
-      const res = await fetch("/api/folders");
-      if (res.ok) {
-        const data = await res.json();
-        setFolders(data.folders || []);
-      }
-    } catch (err) {
-      console.error("Error loading folders:", err);
-    }
+  const handleCreateSubfolder = () => {
+    router.push(`/folders/new?parentId=${id}`);
   };
 
-  const handleUpdate = async () => {
-    if (!formData.title.trim()) {
-      alert("Title is required");
-      return;
-    }
-
-    setSaving(true);
+  const handleFolderUpdate = async (updates) => {
     try {
-      const res = await fetch(`/api/notes/${noteId}`, {
+      const res = await fetch(`/api/folders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: formData.title.trim(),
-          description: formData.description.trim(),
-          content: formData.content.trim(),
-          color: formData.color,
-          folderId: formData.folderId
-        })
+        body: JSON.stringify(updates),
       });
 
-      if (!res.ok) throw new Error("Failed to update note");
-      
       const data = await res.json();
-      setNote(data.note);
-      setEditing(false);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
+      
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to update folder");
+      }
+
+      toast.success("Folder updated successfully");
+      loadFolderData();
+    } catch (error) {
+      toast.error(error.message || "Failed to update folder");
     }
   };
 
-  const handleAction = async (action) => {
+  const handleDeleteFolder = async () => {
+    if (!confirm("Are you sure you want to delete this folder?")) return;
+
     try {
-      let body = {};
-      let method = "PATCH";
+      const res = await fetch(`/api/folders/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
       
-      switch (action) {
-        case 'star':
-          body.isStarred = true;
-          break;
-        case 'unstar':
-          body.isStarred = false;
-          break;
-        case 'archive':
-          body.isArchived = true;
-          break;
-        case 'unarchive':
-          body.isArchived = false;
-          break;
-        case 'trash':
-          method = "DELETE";
-          break;
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to delete folder");
       }
 
-      const url = action === 'trash' 
-        ? `/api/notes/${noteId}?mode=trash`
-        : `/api/notes/${noteId}`;
+      toast.success("Folder deleted successfully");
+      router.push("/folders");
+      router.refresh();
+    } catch (error) {
+      toast.error(error.message || "Failed to delete folder");
+    }
+  };
 
-      const res = await fetch(url, {
-        method,
+  const handleArchiveFolder = async () => {
+    try {
+      const res = await fetch(`/api/folders/${id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        ...(method === "PATCH" && { body: JSON.stringify(body) })
+        body: JSON.stringify({ isArchived: true }),
       });
 
-      if (!res.ok) throw new Error(`Failed to ${action} note`);
+      const data = await res.json();
       
-      if (action === 'trash') {
-        router.push("/dashboard/notes");
-      } else {
-        loadNote();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to archive folder");
       }
-    } catch (err) {
-      setError(err.message);
+
+      toast.success("Folder archived successfully");
+      router.push("/folders");
+      router.refresh();
+    } catch (error) {
+      toast.error(error.message || "Failed to archive folder");
     }
   };
 
-  const handleCancel = () => {
-    if (editing) {
-      setFormData({
-        title: note.title || "",
-        description: note.description || "",
-        content: note.content || "",
-        color: note.color || "#FFFFFF",
-        folderId: note.folderId || ""
-      });
-      setEditing(false);
-    } else {
-      router.back();
-    }
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const handleNoteDeleted = () => {
+    loadFolderData();
   };
 
   if (loading) {
     return (
-      <div className="note-detail-page">
-        <div className="loading-state">
-          <Loader2 className="spinner" size={40} />
-          <p>Loading note...</p>
+      <div className="folder-detail-loading">
+        <div className="loader-container">
+          <Loader2 className="w-12 h-12 animate-spin text-primary-600" />
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading folder...</p>
         </div>
       </div>
     );
   }
 
-  if (error || !note) {
+  if (!folder) {
     return (
-      <div className="note-detail-page">
-        <button onClick={() => router.back()} className="back-button">
-          <ArrowLeft size={20} />
-          Back
-        </button>
-        <div className="error-state">
-          <AlertCircle size={48} />
-          <h3>Note Not Found</h3>
-          <p>{error || "The requested note could not be found"}</p>
-          <button onClick={() => router.push("/dashboard/notes")} className="btn btn-primary">
-            Go to Notes
-          </button>
+      <div className="folder-not-found">
+        <div className="not-found-content">
+          <FolderOpen className="w-16 h-16 text-gray-400" />
+          <h2>Folder Not Found</h2>
+          <p>The folder you're looking for doesn't exist or has been moved.</p>
+          <Link href="/folders" className="back-btn">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Folders
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="note-detail-page">
+    <div className="folder-detail-page">
       {/* Header */}
-      <div className="note-header">
-        <div className="header-top">
-          <button onClick={handleCancel} className="back-button">
-            <ArrowLeft size={20} />
-            Back
+      <div className="folder-header">
+        <div className="header-content">
+          <div className="breadcrumb">
+            <Link href="/folders" className="breadcrumb-link">
+              Folders
+            </Link>
+            <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />
+            <span className="breadcrumb-current">{folder.title}</span>
+          </div>
+
+          <div className="folder-title-section">
+            <div
+              className="folder-icon-header"
+              style={{ backgroundColor: folder.color }}
+            >
+              <Folder className="w-6 h-6" />
+            </div>
+            <div className="title-content">
+              <h1>{folder.title}</h1>
+              {folder.description && (
+                <p className="folder-description-header">{folder.description}</p>
+              )}
+              <div className="folder-meta-header">
+                <span className="meta-item">
+                  <FileText className="w-3 h-3" />
+                  {stats.totalNotes} notes
+                </span>
+                <span className="meta-item">
+                  <FolderOpen className="w-3 h-3" />
+                  {stats.subfoldersCount} subfolders
+                </span>
+                {folder.isProtected && (
+                  <span className="meta-item protected">
+                    <Lock className="w-3 h-3" />
+                    Protected
+                  </span>
+                )}
+                <span className="meta-item">
+                  <Calendar className="w-3 h-3" />
+                  Created {new Date(folder.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="header-actions">
+          <button
+            onClick={handleCreateNote}
+            className="action-btn primary"
+          >
+            <Plus className="w-4 h-4" />
+            New Note
           </button>
+          <button
+            onClick={handleCreateSubfolder}
+            className="action-btn secondary"
+          >
+            <Folder className="w-4 h-4" />
+            New Subfolder
+          </button>
+          <FolderActions
+            folder={folder}
+            onEdit={handleFolderUpdate}
+            onArchive={handleArchiveFolder}
+            onDelete={handleDeleteFolder}
+            onDuplicate={() => router.push(`/folders/${id}/duplicate`)}
+          />
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="folder-main-content">
+        {/* Left Sidebar - Folder Info */}
+        <div className="folder-sidebar">
+          <FolderInfoCard folder={folder} stats={stats} />
           
-          <div className="header-actions">
-            {!editing ? (
-              <>
-                <button 
-                  onClick={() => handleAction(note.isStarred ? 'unstar' : 'star')}
-                  className={`action-btn ${note.isStarred ? 'active' : ''}`}
-                  title={note.isStarred ? "Unstar" : "Star"}
+          <div className="sidebar-section">
+            <h3 className="sidebar-title">Quick Actions</h3>
+            <div className="quick-actions">
+              <button className="quick-action-btn">
+                <Copy className="w-4 h-4" />
+                Duplicate
+              </button>
+              <button className="quick-action-btn">
+                <Move className="w-4 h-4" />
+                Move
+              </button>
+              <button className="quick-action-btn">
+                <Share2 className="w-4 h-4" />
+                Share
+              </button>
+              <button className="quick-action-btn">
+                <Download className="w-4 h-4" />
+                Export
+              </button>
+            </div>
+          </div>
+
+          <div className="sidebar-section">
+            <h3 className="sidebar-title">Folder Stats</h3>
+            <div className="stats-grid">
+              <div className="stat-item">
+                <div className="stat-value">{stats.totalNotes}</div>
+                <div className="stat-label">Total Notes</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-value">{stats.archivedNotes}</div>
+                <div className="stat-label">Archived</div>
+              </div>
+              <div className="stat-item">
+                <div className="stat-value">{stats.subfoldersCount}</div>
+                <div className="stat-label">Subfolders</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Area - Notes and Subfolders */}
+        <div className="folder-content">
+          {/* Toolbar */}
+          <div className="content-toolbar">
+            <div className="toolbar-left">
+              <div className="view-toggle">
+                <button
+                  onClick={() => setNotesView("grid")}
+                  className={`view-btn ${notesView === "grid" ? "active" : ""}`}
                 >
-                  <Star size={18} />
-                  <span>{note.isStarred ? "Starred" : "Star"}</span>
+                  <Grid className="w-4 h-4" />
                 </button>
-                
-                <button 
-                  onClick={() => handleAction(note.isArchived ? 'unarchive' : 'archive')}
-                  className={`action-btn ${note.isArchived ? 'active' : ''}`}
-                  title={note.isArchived ? "Unarchive" : "Archive"}
+                <button
+                  onClick={() => setNotesView("list")}
+                  className={`view-btn ${notesView === "list" ? "active" : ""}`}
                 >
-                  <Archive size={18} />
-                  <span>{note.isArchived ? "Archived" : "Archive"}</span>
+                  <List className="w-4 h-4" />
                 </button>
-                
-                <button 
-                  onClick={() => setEditing(true)}
-                  className="action-btn primary"
-                  title="Edit"
-                >
-                  <Edit size={18} />
-                  <span>Edit</span>
-                </button>
-                
-                <button 
-                  onClick={() => handleAction('trash')}
-                  className="action-btn danger"
-                  title="Move to Trash"
-                >
-                  <Trash2 size={18} />
-                  <span>Trash</span>
-                </button>
-              </>
+              </div>
+
+              <div className="search-container">
+                <Search className="w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search in folder..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+            </div>
+
+            <div className="toolbar-right">
+              <button className="toolbar-btn">
+                <Filter className="w-4 h-4" />
+                Filter
+              </button>
+              <button className="toolbar-btn">
+                <Tag className="w-4 h-4" />
+                Tags
+              </button>
+            </div>
+          </div>
+
+          {/* Subfolders Section */}
+          {subfolders.length > 0 && (
+            <div className="subfolders-section">
+              <div className="section-header">
+                <h2>Subfolders</h2>
+                <Link href={`/folders?parentId=${id}`} className="view-all-link">
+                  View all
+                </Link>
+              </div>
+              <SubfoldersGrid
+                folders={subfolders}
+                onFolderClick={(subfolderId) =>
+                  router.push(`/folders/${subfolderId}`)
+                }
+              />
+            </div>
+          )}
+
+          {/* Notes Section */}
+          <div className="notes-section">
+            <div className="section-header">
+              <h2>Notes in this Folder</h2>
+              <div className="section-actions">
+                <span className="notes-count">
+                  {notes.length} note{notes.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+
+            {notes.length > 0 ? (
+              <NotesList
+                notes={notes}
+                view={notesView}
+                onNoteDeleted={handleNoteDeleted}
+              />
             ) : (
-              <>
-                <button 
-                  onClick={handleUpdate}
-                  className="action-btn primary"
-                  disabled={saving}
+              <div className="empty-notes">
+                <FileText className="w-12 h-12 text-gray-400" />
+                <h3>No notes yet</h3>
+                <p>Create your first note in this folder</p>
+                <button
+                  onClick={handleCreateNote}
+                  className="create-note-btn"
                 >
-                  <Save size={18} />
-                  <span>{saving ? "Saving..." : "Save"}</span>
+                  <Plus className="w-4 h-4" />
+                  Create Note
                 </button>
-                
-                <button 
-                  onClick={handleCancel}
-                  className="action-btn"
-                  disabled={saving}
-                >
-                  <X size={18} />
-                  <span>Cancel</span>
-                </button>
-              </>
+              </div>
             )}
           </div>
         </div>
-
-        {editing ? (
-          <input
-            type="text"
-            value={formData.title}
-            onChange={(e) => setFormData({...formData, title: e.target.value})}
-            className="edit-title"
-            placeholder="Note title..."
-            autoFocus
-          />
-        ) : (
-          <h1 className="note-title">{note.title}</h1>
-        )}
-        
-        <div className="note-meta">
-          <div className="meta-item">
-            <Calendar size={16} />
-            <span>Created: {formatDate(note.createdAt)}</span>
-          </div>
-          <div className="meta-item">
-            <Calendar size={16} />
-            <span>Updated: {formatDate(note.updatedAt)}</span>
-          </div>
-          {note.folderId && (
-            <div className="meta-item">
-              <Folder size={16} />
-              <span>
-                {folders.find(f => f._id === note.folderId)?.title || "Folder"}
-              </span>
-            </div>
-          )}
-          {note.tags && note.tags.length > 0 && (
-            <div className="meta-item">
-              <Tag size={16} />
-              <div className="tags">
-                {note.tags.map(tag => (
-                  <span key={tag} className="tag">{tag}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
       </div>
-
-      {/* Content */}
-      <div className="note-content">
-        {editing ? (
-          <textarea
-            value={formData.description || formData.content}
-            onChange={(e) => setFormData({...formData, description: e.target.value, content: e.target.value})}
-            className="edit-content"
-            placeholder="Write your note content here..."
-            rows={20}
-          />
-        ) : (
-          <div className="note-body">
-            {note.description ? (
-              <div className="description">
-                {note.description.split('\n').map((line, i) => (
-                  <p key={i}>{line}</p>
-                ))}
-              </div>
-            ) : note.content ? (
-              <div className="content">
-                {note.content}
-              </div>
-            ) : (
-              <div className="empty-content">
-                <p>No content yet. Add some content to this note.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Sidebar (for editing) */}
-        {editing && (
-          <div className="edit-sidebar">
-            <div className="sidebar-section">
-              <h3>Folder</h3>
-              <select
-                value={formData.folderId}
-                onChange={(e) => setFormData({...formData, folderId: e.target.value})}
-                className="folder-select"
-              >
-                <option value="">Select folder...</option>
-                {folders.map(folder => (
-                  <option key={folder._id} value={folder._id}>
-                    {folder.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="sidebar-section">
-              <h3>Color</h3>
-              <div className="color-picker">
-                {["#FFFFFF", "#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8", "#F7DC6F", "#BB8FCE"].map(color => (
-                  <button
-                    key={color}
-                    onClick={() => setFormData({...formData, color})}
-                    className={`color-option ${formData.color === color ? 'selected' : ''}`}
-                    style={{ backgroundColor: color }}
-                    title={color}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="sidebar-section">
-              <h3>Tags</h3>
-              <p className="info-text">Coming soon...</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Status Badges */}
-      {(note.isStarred || note.isArchived) && (
-        <div className="status-badges">
-          {note.isStarred && (
-            <span className="status-badge starred">
-              <Star size={14} />
-              Starred
-            </span>
-          )}
-          {note.isArchived && (
-            <span className="status-badge archived">
-              <Archive size={14} />
-              Archived
-            </span>
-          )}
-        </div>
-      )}
     </div>
   );
 }

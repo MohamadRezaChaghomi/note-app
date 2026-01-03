@@ -133,6 +133,25 @@ export async function logout() {
   return res;
 }
 
+export async function updateName(req, uid) {
+  try {
+    const body = await req.json();
+    const { name } = body || {};
+    if (!name || !name.trim()) {
+      return Response.json({ ok: false, error: "MISSING_NAME" }, { status: 400 });
+    }
+
+    const updated = await authServiceInstance.updateUserName(uid, name.trim());
+    return Response.json({ ok: true, name: updated.name });
+  } catch (error) {
+    console.error("Update name error:", error);
+    if (error.message === "USER_NOT_FOUND") {
+      return Response.json({ ok: false, error: "USER_NOT_FOUND" }, { status: 404 });
+    }
+    return Response.json({ ok: false, error: "UPDATE_FAILED" }, { status: 500 });
+  }
+}
+
 // Legacy function (for token-based reset)
 export async function validateToken(req) {
   try {

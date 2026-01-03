@@ -1,462 +1,644 @@
-// app/dashboard/folders/page.jsx - نسخه جدید با استایل بهتر
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Folder, Trash2, Edit2, FileText, Loader, AlertCircle, ChevronRight, MoreVertical, Users, Lock, Star, Calendar } from "lucide-react";
-import "@/styles/folders.css";
+import {
+  Folder,
+  FolderPlus,
+  FolderOpen,
+  Archive,
+  Trash2,
+  Edit,
+  MoreVertical,
+  ChevronRight,
+  ChevronDown,
+  Plus,
+  Search,
+  Filter,
+  RefreshCw,
+  FolderTree,
+  BarChart,
+  X,
+  Check,
+  Loader2,
+  FolderUp,
+  FolderDown,
+  Copy,
+  Star,
+  Lock,
+  Unlock,
+  Grid,
+  List,
+  Columns,
+  FileText,
+} from "lucide-react";
+import { toast } from "sonner";
+import FolderCard from "@/components/folders/FolderCard";
+import FolderGrid from "@/components/folders/FolderGrid";
+import FolderTreeView from "@/components/folders/FolderTreeView";
+import BulkFolderActions from "@/components/folders/BulkFolderActions";
+import EmptyFoldersState from "@/components/folders/EmptyFoldersState";
+import FolderStats from "@/components/folders/FolderStats";
+import CreateFolderModal from "@/components/folders/CreateFolderModal";
+import EditFolderModal from "@/components/folders/EditFolderModal";
+import DeleteFolderModal from "@/components/folders/DeleteFolderModal";
+import "@/styles/folders-page.css";
 
 export default function FoldersPage() {
   const router = useRouter();
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showNewForm, setShowNewForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({ title: "", description: "", color: "#3B82F6", privacy: "private" });
-  const [folderStats, setFolderStats] = useState({});
-  const [error, setError] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [selectedFolder, setSelectedFolder] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list' | 'tree'
+  const [selectedFolders, setSelectedFolders] = useState([]);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [currentFolder, setCurrentFolder] = useState(null);
+  const [parentFolder, setParentFolder] = useState(null);
+  const [breadcrumb, setBreadcrumb] = useState([]);
+  const [sortBy, setSortBy] = useState("order_asc");
 
-  useEffect(() => {
-    loadFolders();
-  }, []);
-
-  const loadFolders = async () => {
+  const loadFolders = useCallback(async (parentId = null) => {
     try {
       setLoading(true);
-      const res = await fetch("/api/folders");
-      if (!res.ok) throw new Error("Failed to load folders");
+      
+      const params = new URLSearchParams({
+        parentId: parentId || "",
+        withNoteCount: "true",
+        sort: sortBy,
+        ...(searchQuery && { search: searchQuery }),
+      });
+
+      const res = await fetch(`/api/folders?${params}`);
       const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to load folders");
+      }
+
       setFolders(data.folders || []);
       
-      // Load stats for each folder
-      const stats = {};
-      for (const folder of data.folders || []) {
-        const notesRes = await fetch(`/api/notes?folderId=${folder._id}`);
-        if (notesRes.ok) {
-          const notesData = await notesRes.json();
-          const notes = notesData.notes || [];
-          
-          // Calculate stats
-          const totalNotes = notes.length;
-          const starredNotes = notes.filter(n => n.isStarred).length;
-          const recentNotes = notes.filter(n => {
-            const date = new Date(n.updatedAt);
-            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-            return date > weekAgo;
-          }).length;
-          
-          stats[folder._id] = {
-            total: totalNotes,
-            starred: starredNotes,
-            recent: recentNotes,
-            lastUpdated: notes.length > 0 
-              ? new Date(Math.max(...notes.map(n => new Date(n.updatedAt))))
-              : folder.updatedAt
-          };
+      // Load breadcrumb if we're in a subfolder
+      if (parentId) {
+        const breadcrumbRes = await fetch(`/api/folders/${parentId}/path`);
+        if (breadcrumbRes.ok) {
+          const breadcrumbData = await breadcrumbRes.json();
+          setBreadcrumb(breadcrumbData.path || []);
         }
+        setParentFolder(parentId);
+      } else {
+        setBreadcrumb([]);
+        setParentFolder(null);
       }
-      setFolderStats(stats);
-    } catch (err) {
-      setError(err.message || "Error loading folders");
+      
+    } catch (error) {
+      console.error("Load folders error:", error);
+      toast.error(error.message || "Failed to load folders");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [searchQuery, sortBy]);
 
-  const handleSaveFolder = async (e) => {
-    e.preventDefault();
-    if (!formData.title.trim()) {
-      setError("Title is required");
-      return;
-    }
-
-    setSaving(true);
-    setError(null);
+  const loadStats = useCallback(async () => {
     try {
-      const method = editingId ? "PATCH" : "POST";
-      const url = editingId ? `/api/folders/${editingId}` : "/api/folders";
+      const res = await fetch("/api/folders?view=stats");
+      const data = await res.json();
       
-      const payload = editingId 
-        ? { title: formData.title.trim(), color: formData.color }
-        : { 
-            title: formData.title.trim(), 
-            description: formData.description.trim(),
-            color: formData.color,
-            privacy: formData.privacy
-          };
-      
-      const res = await fetch(url, {
-        method,
+      if (data.ok) {
+        setStats(data.stats);
+      }
+    } catch (error) {
+      console.error("Load stats error:", error);
+    }
+  }, []);
+
+  const refreshAll = useCallback(() => {
+    setRefreshing(true);
+    loadFolders(parentFolder);
+    loadStats();
+  }, [loadFolders, loadStats, parentFolder]);
+
+  useEffect(() => {
+    loadFolders(parentFolder);
+    loadStats();
+  }, [loadFolders, loadStats, parentFolder]);
+
+  const handleCreateFolder = async (folderData) => {
+    try {
+      const res = await fetch("/api/folders", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          ...folderData,
+          parentId: parentFolder,
+        }),
       });
 
       const data = await res.json();
-
+      
       if (!res.ok) {
-        setError(data.message || `Error: ${res.status}`);
-        setSaving(false);
-        return;
+        throw new Error(data.message || "Failed to create folder");
       }
-      
-      if (editingId) {
-        setFolders(folders.map(f => f._id === editingId ? { ...f, ...data.folder } : f));
-        setEditingId(null);
-      } else {
-        if (data?.folder?._id) {
-          setFolders([...folders, data.folder]);
-          setFolderStats(prev => ({ 
-            ...prev, 
-            [data.folder._id]: { total: 0, starred: 0, recent: 0, lastUpdated: data.folder.createdAt }
-          }));
-        }
-      }
-      
-      setFormData({ title: "", description: "", color: "#3B82F6", privacy: "private" });
-      setShowNewForm(false);
-    } catch (err) {
-      console.error("Save folder error:", err);
-      setError(err.message || "Failed to save folder");
-    } finally {
-      setSaving(false);
+
+      toast.success("Folder created successfully");
+      setShowCreateModal(false);
+      refreshAll();
+    } catch (error) {
+      toast.error(error.message || "Failed to create folder");
+      throw error;
     }
   };
 
-  const handleDeleteFolder = async (folderId) => {
-    const noteCount = folderStats[folderId]?.total || 0;
-    const msg = noteCount > 0
-      ? `This folder has ${noteCount} notes. Deleting the folder will delete all notes inside it. Are you sure?`
-      : "Are you sure you want to delete this folder?";
-    
-    if (!confirm(msg)) return;
+  const handleUpdateFolder = async (folderId, updates) => {
+    try {
+      const res = await fetch(`/api/folders/${folderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to update folder");
+      }
+
+      toast.success("Folder updated successfully");
+      setShowEditModal(false);
+      setCurrentFolder(null);
+      refreshAll();
+    } catch (error) {
+      toast.error(error.message || "Failed to update folder");
+      throw error;
+    }
+  };
+
+  const handleDeleteFolder = async (folderId, options = {}) => {
+    try {
+      const params = new URLSearchParams();
+      if (options.force) params.append("force", "true");
+      if (options.moveNotesTo) params.append("moveNotesTo", options.moveNotesTo);
+
+      const res = await fetch(`/api/folders/${folderId}?${params}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to delete folder");
+      }
+
+      toast.success(data.message || "Folder deleted successfully");
+      setShowDeleteModal(false);
+      setCurrentFolder(null);
+      refreshAll();
+    } catch (error) {
+      toast.error(error.message || "Failed to delete folder");
+      throw error;
+    }
+  };
+
+  const handleBulkAction = async (action, data = {}) => {
+    if (selectedFolders.length === 0) return;
 
     try {
-      const res = await fetch(`/api/folders/${folderId}`, { method: "DELETE" });
-      const data = await res.json().catch(() => ({}));
+      const res = await fetch("/api/folders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          folderIds: selectedFolders,
+          ...data,
+        }),
+      });
+
+      const result = await res.json();
+      
       if (!res.ok) {
-        setError(data.message || "Failed to delete folder");
-        return;
+        throw new Error(result.message || "Bulk action failed");
       }
 
-      setFolders(prev => prev.filter(f => f._id !== folderId));
-      setFolderStats(prev => {
-        const copy = { ...prev };
-        delete copy[folderId];
-        return copy;
-      });
-    } catch (err) {
-      console.error('Delete folder error:', err);
-      setError(err.message || 'Failed to delete folder');
+      toast.success(result.message || "Bulk action completed");
+      setSelectedFolders([]);
+      setBulkMode(false);
+      refreshAll();
+    } catch (error) {
+      toast.error(error.message || "Bulk action failed");
     }
   };
 
-  const handleEdit = (folder) => {
-    setEditingId(folder._id);
-    setFormData({ 
-      title: folder.title, 
-      description: folder.description || "",
-      color: folder.color || "#3B82F6",
-      privacy: folder.privacy || "private"
-    });
-    setShowNewForm(true);
+  const handleFolderClick = (folder) => {
+    if (bulkMode) {
+      setSelectedFolders(prev =>
+        prev.includes(folder._id)
+          ? prev.filter(id => id !== folder._id)
+          : [...prev, folder._id]
+      );
+    } else {
+      // Navigate into folder
+      loadFolders(folder._id);
+    }
   };
 
-  const handleCancel = () => {
-    setShowNewForm(false);
-    setEditingId(null);
-    setFormData({ title: "", description: "", color: "#3B82F6", privacy: "private" });
+  const handleBack = () => {
+    if (breadcrumb.length > 1) {
+      const parent = breadcrumb[breadcrumb.length - 2];
+      loadFolders(parent._id);
+    } else {
+      loadFolders(null);
+    }
   };
 
-  const handleFolderClick = (folderId) => {
-    router.push(`/dashboard/folders/${folderId}`);
-  };
+  const sortOptions = [
+    { value: "order_asc", label: "Custom Order", icon: Grid },
+    { value: "title_asc", label: "Title A-Z", icon: List },
+    { value: "createdAt_desc", label: "Newest First", icon: Plus },
+    { value: "updatedAt_desc", label: "Recently Updated", icon: RefreshCw },
+  ];
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  if (loading) {
+  if (loading && !refreshing) {
     return (
-      <div className="folders-modern-page">
-        <div className="loading-state">
-          <div className="loading-spinner"></div>
-          <p>Loading folders...</p>
+      <div className="folders-page">
+        <div className="loading-fullscreen">
+          <div className="loader-container">
+            <Loader2 className="w-12 h-12 animate-spin text-primary-600" />
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading folders...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="folders-modern-page">
+    <div className="folders-page">
       {/* Header */}
-      <div className="page-header">
-        <div className="header-content">
-          <h1>Folders</h1>
-          <p>Organize your notes into folders</p>
-          <div className="header-stats">
-            <div className="stat">
-              <span className="stat-value">{folders.length}</span>
-              <span className="stat-label">Total Folders</span>
+      <div className="folders-header">
+        <div className="folders-header-content">
+          <div className="folders-header-left">
+            <div className="folders-page-title">
+              <h1>{parentFolder ? "Subfolders" : "All Folders"}</h1>
+              <p className="folders-subtitle">
+                {folders.length} folder{folders.length !== 1 ? "s" : ""}
+                {parentFolder && " in this folder"}
+              </p>
             </div>
-            <div className="stat">
-              <span className="stat-value">
-                {Object.values(folderStats).reduce((sum, stats) => sum + stats.total, 0)}
-              </span>
-              <span className="stat-label">Total Notes</span>
-            </div>
-            <div className="stat">
-              <span className="stat-value">
-                {Object.values(folderStats).reduce((sum, stats) => sum + stats.starred, 0)}
-              </span>
-              <span className="stat-label">Starred Notes</span>
-            </div>
+
+            {/* Breadcrumb */}
+            {breadcrumb.length > 0 && (
+              <div className="folders-breadcrumb">
+                <button
+                  onClick={() => loadFolders(null)}
+                  className="breadcrumb-item"
+                >
+                  <Folder className="w-4 h-4" />
+                  All Folders
+                </button>
+                {breadcrumb.map((folder) => (
+                  <div key={folder._id} className="breadcrumb-separator">
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                ))}
+                {breadcrumb.map((folder, index) => (
+                  <button
+                    key={folder._id}
+                    onClick={() => loadFolders(folder._id)}
+                    className={`breadcrumb-item ${index === breadcrumb.length - 1 ? "active" : ""}`}
+                    style={{ color: folder.color }}
+                  >
+                    {folder.title}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Quick Stats */}
+            {stats && <FolderStats stats={stats} />}
+          </div>
+
+          <div className="folders-header-right">
+            {/* Refresh Button */}
+            <button
+              onClick={refreshAll}
+              disabled={refreshing}
+              className="folders-refresh-btn"
+              title="Refresh"
+            >
+              <RefreshCw className={`w-5 h-5 ${refreshing ? "animate-spin" : ""}`} />
+            </button>
+
+            {/* New Folder Button */}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="new-folder-btn"
+            >
+              <FolderPlus className="w-5 h-5" />
+              New Folder
+            </button>
           </div>
         </div>
-        
-        <button
-          onClick={() => {
-            setShowNewForm(!showNewForm);
-            if (showNewForm) handleCancel();
-          }}
-          className="create-folder-btn"
-        >
-          <Plus size={20} />
-          New Folder
-        </button>
+
+        {/* Search Bar */}
+        <div className="folders-search-container">
+          <div className="folders-search-wrapper">
+            <Search className="folders-search-icon" />
+            <input
+              type="text"
+              placeholder="Search folders..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="folders-search-input"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="folders-clear-search-btn"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Toolbar */}
+        <div className="folders-toolbar">
+          <div className="folders-toolbar-left">
+            {/* View Toggle */}
+            <div className="folders-view-toggle">
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`folders-view-btn ${viewMode === "grid" ? "active" : ""}`}
+                title="Grid View"
+              >
+                <Grid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`folders-view-btn ${viewMode === "list" ? "active" : ""}`}
+                title="List View"
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("tree")}
+                className={`folders-view-btn ${viewMode === "tree" ? "active" : ""}`}
+                title="Tree View"
+              >
+                <FolderTree className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="folders-sort-dropdown">
+              <Filter className="w-4 h-4" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="folders-sort-select"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="folders-toolbar-right">
+            {/* Bulk Select */}
+            <button
+              onClick={() => {
+                setBulkMode(!bulkMode);
+                if (bulkMode) setSelectedFolders([]);
+              }}
+              className={`folders-bulk-select-btn ${bulkMode ? "active" : ""}`}
+            >
+              {bulkMode ? <Check className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
+              {bulkMode ? "Done" : "Select"}
+            </button>
+
+            {/* Bulk Actions */}
+            {selectedFolders.length > 0 && (
+              <BulkFolderActions
+                count={selectedFolders.length}
+                onArchive={() => handleBulkAction("archive")}
+                onUnarchive={() => handleBulkAction("unarchive")}
+                onMove={(parentId) => handleBulkAction("move", { parentId })}
+                onCancel={() => {
+                  setSelectedFolders([]);
+                  setBulkMode(false);
+                }}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
-      {error && (
-        <div className="error-alert">
-          <AlertCircle size={20} />
-          <span>{error}</span>
-          <button onClick={() => setError(null)} className="close-btn">×</button>
-        </div>
-      )}
-
-      {/* New Folder Form */}
-      {showNewForm && (
-        <div className="folder-form-modal">
-          <div className="form-header">
-            <h3>{editingId ? "Edit Folder" : "Create New Folder"}</h3>
-            <button onClick={handleCancel} className="close-form-btn">×</button>
+      {/* Main Content */}
+      <div className="folders-display">
+        {/* Loading State */}
+        {loading && !refreshing && (
+          <div className="folders-loading-fullscreen">
+            <div className="folders-loader-container">
+              <Loader2 className="w-12 h-12 animate-spin text-primary-600 mx-auto" />
+              <p className="mt-4 text-gray-600 dark:text-gray-400">Loading folders...</p>
+            </div>
           </div>
-          
-          <form onSubmit={handleSaveFolder} className="folder-form">
-            <div className="form-row">
-              <div className="form-group">
-                <label>Folder Name *</label>
-                <input
-                  type="text"
-                  placeholder="Enter folder name..."
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="form-input"
-                  disabled={saving}
-                  autoFocus
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>Color</label>
-                <div className="color-options">
-                  {["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#EC4899", "#06B6D4", "#84CC16"].map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, color })}
-                      className={`color-option ${formData.color === color ? 'selected' : ''}`}
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-            
-            <div className="form-group">
-              <label>Description</label>
-              <textarea
-                placeholder="Optional description..."
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="form-textarea"
-                disabled={saving}
-                rows={3}
-              />
-            </div>
-            
-            {!editingId && (
-              <div className="form-group">
-                <label>Privacy</label>
-                <div className="privacy-options">
-                  <label className="privacy-option">
-                    <input
-                      type="radio"
-                      name="privacy"
-                      value="private"
-                      checked={formData.privacy === "private"}
-                      onChange={(e) => setFormData({ ...formData, privacy: e.target.value })}
-                    />
-                    <Lock size={16} />
-                    <span>Private</span>
-                    <small>Only you can see this folder</small>
-                  </label>
-                  
-                  <label className="privacy-option">
-                    <input
-                      type="radio"
-                      name="privacy"
-                      value="shared"
-                      checked={formData.privacy === "shared"}
-                      onChange={(e) => setFormData({ ...formData, privacy: e.target.value })}
-                    />
-                    <Users size={16} />
-                    <span>Shared</span>
-                    <small>Share with specific people</small>
-                  </label>
+        )}
+
+        {/* Empty State */}
+        {!loading && folders.length === 0 && (
+          <EmptyFoldersState
+            parentFolder={parentFolder}
+            onCreateFolder={() => setShowCreateModal(true)}
+            onGoBack={handleBack}
+          />
+        )}
+
+        {/* Folders Display */}
+        {!loading && folders.length > 0 && (
+          <>
+            {/* Select All Bar */}
+            {bulkMode && (
+              <div className="folders-select-all-bar">
+                <label className="folders-select-all-label">
+                  <input
+                    type="checkbox"
+                    checked={selectedFolders.length === folders.length}
+                    onChange={() => {
+                      if (selectedFolders.length === folders.length) {
+                        setSelectedFolders([]);
+                      } else {
+                        setSelectedFolders(folders.map(f => f._id));
+                      }
+                    }}
+                    className="folders-select-all-checkbox"
+                  />
+                  <span>
+                    {selectedFolders.length === folders.length
+                      ? "Deselect all"
+                      : `Select all ${folders.length} folders`
+                    }
+                  </span>
+                </label>
+                <div className="folders-selected-count">
+                  {selectedFolders.length} selected
                 </div>
               </div>
             )}
-            
-            <div className="form-actions">
-              <button type="submit" className="btn-save" disabled={saving || !formData.title.trim()}>
-                {saving ? "Saving..." : editingId ? "Update Folder" : "Create Folder"}
-              </button>
-              <button type="button" className="btn-cancel" onClick={handleCancel} disabled={saving}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
-      {/* Folders Grid */}
-      {folders.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-illustration">
-            <Folder size={80} />
-          </div>
-          <h3>No folders yet</h3>
-          <p>Create your first folder to organize notes</p>
-          <button onClick={() => setShowNewForm(true)} className="btn-create">
-            <Plus size={20} />
-            Create Folder
-          </button>
-        </div>
-      ) : (
-        <div className="folders-grid">
-          {folders.map((folder) => {
-            const stats = folderStats[folder._id] || { total: 0, starred: 0, recent: 0 };
-            const isSelected = selectedFolder === folder._id;
-            
-            return (
-              <div 
-                key={folder._id} 
-                className={`folder-card ${isSelected ? 'selected' : ''}`}
-                onClick={() => handleFolderClick(folder._id)}
-                onMouseEnter={() => setSelectedFolder(folder._id)}
-                onMouseLeave={() => setSelectedFolder(null)}
-              >
-                <div className="folder-card-header">
-                  <div className="folder-icon" style={{ backgroundColor: folder.color || "#3B82F6" }}>
-                    <Folder size={24} />
-                  </div>
-                  
-                  <div className="folder-actions">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(folder);
+            {/* Folders Grid/List/Tree */}
+            <div className={`folders-grid-container ${viewMode}-view`}>
+              {viewMode === "grid" && (
+                <FolderGrid
+                  folders={folders}
+                  selectedFolders={selectedFolders}
+                  bulkMode={bulkMode}
+                  onSelectFolder={setSelectedFolders}
+                  onFolderClick={handleFolderClick}
+                  onEditFolder={(folder) => {
+                    setCurrentFolder(folder);
+                    setShowEditModal(true);
+                  }}
+                  onDeleteFolder={(folder) => {
+                    setCurrentFolder(folder);
+                    setShowDeleteModal(true);
+                  }}
+                />
+              )}
+
+              {viewMode === "list" && (
+                <div className="folders-list">
+                  {folders.map((folder) => (
+                    <div
+                      key={folder._id}
+                      className={`folder-list-item ${selectedFolders.includes(folder._id) ? "selected" : ""}`}
+                      onClick={() => {
+                        if (!bulkMode) {
+                          handleFolderClick(folder);
+                        }
                       }}
-                      className="action-btn"
-                      title="Edit"
                     >
-                      <Edit2 size={16} />
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteFolder(folder._id);
-                      }}
-                      className="action-btn delete"
-                      title="Delete"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="folder-content">
-                  <h3 className="folder-title">{folder.title}</h3>
-                  
-                  {folder.description && (
-                    <p className="folder-description">{folder.description}</p>
-                  )}
-                  
-                  <div className="folder-stats">
-                    <div className="stat-item">
-                      <FileText size={14} />
-                      <span>{stats.total} notes</span>
+                      {bulkMode && (
+                        <input
+                          type="checkbox"
+                          checked={selectedFolders.includes(folder._id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setSelectedFolders(prev =>
+                              prev.includes(folder._id)
+                                ? prev.filter(id => id !== folder._id)
+                                : [...prev, folder._id]
+                            );
+                          }}
+                          className="folder-checkbox"
+                        />
+                      )}
+                      <div className="folder-icon" style={{ backgroundColor: folder.color }}>
+                        <Folder className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="folder-info">
+                        <h4 className="folder-title">{folder.title}</h4>
+                        {folder.description && (
+                          <p className="folder-description">{folder.description}</p>
+                        )}
+                        <div className="folder-meta">
+                          <span className="meta-item">
+                            <FileText className="w-3 h-3" />
+                            {folder.noteCount} note{folder.noteCount !== 1 ? "s" : ""}
+                          </span>
+                          {folder.subfolders && folder.subfolders.length > 0 && (
+                            <span className="meta-item">
+                              <Folder className="w-3 h-3" />
+                              {folder.subfolders.length} subfolder{folder.subfolders.length !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="folder-actions">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCurrentFolder(folder);
+                            setShowEditModal(true);
+                          }}
+                          className="action-btn"
+                          title="Edit folder"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCurrentFolder(folder);
+                            setShowDeleteModal(true);
+                          }}
+                          className="action-btn danger"
+                          title="Delete folder"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    
-                    {stats.starred > 0 && (
-                      <div className="stat-item">
-                        <Star size={14} />
-                        <span>{stats.starred} starred</span>
-                      </div>
-                    )}
-                    
-                    {stats.recent > 0 && (
-                      <div className="stat-item">
-                        <Calendar size={14} />
-                        <span>{stats.recent} new</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="folder-footer">
-                    <span className="last-updated">
-                      {stats.lastUpdated ? `Updated ${formatDate(stats.lastUpdated)}` : 'No notes yet'}
-                    </span>
-                    
-                    {folder.privacy === 'private' ? (
-                      <Lock size={14} className="privacy-icon" />
-                    ) : (
-                      <Users size={14} className="privacy-icon" />
-                    )}
-                  </div>
+                  ))}
                 </div>
-                
-                <ChevronRight size={20} className="folder-arrow" />
-              </div>
-            );
-          })}
-        </div>
+              )}
+
+              {viewMode === "tree" && (
+                <FolderTreeView
+                  folders={folders}
+                  onFolderClick={handleFolderClick}
+                  onEditFolder={(folder) => {
+                    setCurrentFolder(folder);
+                    setShowEditModal(true);
+                  }}
+                  onDeleteFolder={(folder) => {
+                    setCurrentFolder(folder);
+                    setShowDeleteModal(true);
+                  }}
+                />
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Modals */}
+      {showCreateModal && (
+        <CreateFolderModal
+          parentFolder={parentFolder}
+          onClose={() => setShowCreateModal(false)}
+          onSubmit={handleCreateFolder}
+        />
       )}
 
-      {/* Quick Tips */}
-      {folders.length > 0 && (
-        <div className="quick-tips">
-          <h4>💡 Quick Tips</h4>
-          <ul>
-            <li>Click on a folder to view its contents</li>
-            <li>Drag and drop notes between folders (coming soon)</li>
-            <li>Use colors to categorize folders visually</li>
-            <li>Share folders with team members</li>
-          </ul>
-        </div>
+      {showEditModal && currentFolder && (
+        <EditFolderModal
+          folder={currentFolder}
+          onClose={() => {
+            setShowEditModal(false);
+            setCurrentFolder(null);
+          }}
+          onSubmit={(updates) => handleUpdateFolder(currentFolder._id, updates)}
+        />
+      )}
+
+      {showDeleteModal && currentFolder && (
+        <DeleteFolderModal
+          folder={currentFolder}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setCurrentFolder(null);
+          }}
+          onSubmit={handleDeleteFolder}
+          folders={folders}
+        />
       )}
     </div>
   );

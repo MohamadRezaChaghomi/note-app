@@ -86,18 +86,17 @@ function LoginContent() {
         router.push("/dashboard");
         router.refresh();
       } else {
-        // Login failed
-        let errorMsg = "Invalid email, password, or security check.";
+          // Login failed
+          let errorMsg = "Invalid email, password, or security check.";
 
-        if (res.error === "CredentialsSignin" || res.error === "INVALID_CREDENTIALS") {
-          errorMsg = "ایمیل یا رمز عبور اشتباه است.";
-        } else if (res.error === "USE_GOOGLE") {
-          errorMsg = "این حساب با گوگل ساخته شده؛ لطفاً از گزینه 'Continue with Google' استفاده کنید.";
-        } else if (res.error === "RECAPTCHA_FAILED") {
-          errorMsg = "تأیید امنیتی ناموفق بود. لطفا دوباره تلاش کنید.";
-          setRecaptchaToken("");
-        }
-
+          if (res.error === "CredentialsSignin" || res.error === "INVALID_CREDENTIALS") {
+              errorMsg = "Email or password is incorrect.";
+          } else if (res.error === "USE_GOOGLE") {
+              errorMsg = "This account was created with Google; please use the 'Continue with Google' option.";
+          } else if (res.error === "RECAPTCHA_FAILED") {
+              errorMsg = "Security verification failed. Please try again.";
+              setRecaptchaToken("");
+          }
         setError(errorMsg);
       }
     } catch (err) {
@@ -184,7 +183,7 @@ function LoginContent() {
             </div>
 
             <div className="form-header">
-              <h1 className="form-title">Welcome Back!</h1>
+              <h1 className="form-title">!خوش برگشتی مشتی</h1>
               <p className="form-subtitle">Sign in to your account to continue</p>
             </div>
 

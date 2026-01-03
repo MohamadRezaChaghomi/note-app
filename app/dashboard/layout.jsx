@@ -42,24 +42,23 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <div className="dashboard-container">
-      {/* Sidebar - در موبایل با منو همبرگر کنترل میشه */}
-      <aside className={`dashboard-sidebar ${sidebarOpen ? "open" : ""}`}>
-        <Sidebar onClose={closeSidebar} />
-      </aside>
+    <div className="dashboard-layout">
+      {/* Navbar - حالت شیشه‌ای */}
+      <header className="layout-header">
+        <Navbar 
+          onMenuClick={toggleSidebar}
+          sidebarOpen={sidebarOpen}
+        />
+      </header>
 
-      {/* Main Content */}
-      <div className="dashboard-main">
-        {/* Navbar */}
-        <div className="layout-navbar">
-          <Navbar 
-            onMenuClick={toggleSidebar}
-            sidebarOpen={sidebarOpen}
-          />
-        </div>
-        
-        {/* Content */}
-        <main className="dashboard-content">
+      <div className="layout-body">
+        {/* Sidebar - در سمت چپ */}
+        <aside className={`layout-sidebar ${sidebarOpen ? "open" : ""}`}>
+          <Sidebar onClose={closeSidebar} />
+        </aside>
+
+        {/* Main Content */}
+        <main className="layout-main">
           {children}
         </main>
       </div>

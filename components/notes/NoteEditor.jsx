@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Save, Bold, Italic, List, Code, Eye, EyeOff, X } from "lucide-react";
-import "@/styles/components/notes.css";
 export default function NoteEditor({ initial = {}, onSave, saving = false, readOnly = false }) {
   const [title, setTitle] = useState(initial.title || "");
   const [content, setContent] = useState(initial.content || "");

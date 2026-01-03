@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState, useEffect } from "react";
 import Script from "next/script";
+import SessionTimeout from "@/components/ui/SessionTimeout";
 
 export default function Providers({ children }) {
   const [queryClient] = useState(
@@ -51,6 +52,7 @@ export default function Providers({ children }) {
             }}
           />
 
+          <SessionTimeout />
           {children}
 
           {/* Google reCAPTCHA v3 Script */}

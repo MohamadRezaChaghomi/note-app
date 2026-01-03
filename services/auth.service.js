@@ -361,6 +361,26 @@ class AuthService {
     await connectDB();
     return User.findOne({ email });
   }
+
+  /**
+   * Update user's display name
+   */
+  async updateUserName(userId, newName) {
+    try {
+      await connectDB();
+      const user = await User.findByIdAndUpdate(
+        userId,
+        { name: newName },
+        { new: true }
+      ).lean();
+
+      if (!user) throw new Error("USER_NOT_FOUND");
+      return user;
+    } catch (error) {
+      console.error("Update user name error:", error);
+      throw error;
+    }
+  }
 }
 
 // ایجاد نمونه از سرویس

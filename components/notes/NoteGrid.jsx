@@ -1,14 +1,14 @@
 "use client";
 
 import NoteCard from "./NoteCard";
-import "@/styles/components/notes.css";
-export default function NoteGrid({
-  notes,
-  selectedNotes = [],
-  bulkMode = false,
-  onSelectNote,
+import "@styles/components/notes/note-grid.module.css"
+export default function NoteGrid({ 
+  notes, 
+  selectedNotes, 
+  bulkMode, 
+  onSelectNote, 
   onNoteAction,
-  onViewNote
+  onViewNote 
 }) {
   return (
     <div className="notes-grid">

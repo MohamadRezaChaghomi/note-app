@@ -1,0 +1,29 @@
+/* CSS for FolderGrid */
+.folders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.grid-item {
+  transition: transform 0.2s ease;
+}
+
+.grid-item:hover {
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .folders-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .folders-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
