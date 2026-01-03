@@ -206,7 +206,7 @@ export default function RegisterPage() {
                       setFormData(prev => ({ ...prev, name: e.target.value }));
                       if (errors.name) setErrors(prev => ({ ...prev, name: null }));
                     }}
-                    placeholder="John Doe"
+                    placeholder="User Name"
                     className={`form-input ${errors.name ? 'error' : ''}`}
                     required
                     disabled={loading}

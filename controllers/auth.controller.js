@@ -1,4 +1,4 @@
-import authService from "@/services/auth.service";
+import authServiceInstance from "@/services/auth.service";
 
 export async function register(req) {
   try {
@@ -9,7 +9,7 @@ export async function register(req) {
       return Response.json({ ok: false, error: "MISSING_FIELDS" }, { status: 400 });
     }
 
-    const user = await authService.registerUser({ email, password, name, recaptchaToken });
+    const user = await authServiceInstance.registerUser({ email, password, name, recaptchaToken });
     return Response.json({ ok: true, userId: String(user._id) });
   } catch (error) {
     console.error("Registration error:", error.message);
@@ -35,14 +35,24 @@ export async function forgetPassword(req) {
       return Response.json({ ok: false, error: "EMAIL_REQUIRED" }, { status: 400 });
     }
 
-    await authService.sendResetCode(email);
+    const result = await authServiceInstance.sendResetCode(email);
     
     return Response.json({ 
       ok: true, 
-      message: "If an account exists with this email, a reset code has been sent." 
+      message: "If an account exists with this email, a reset code has been sent.",
+      ...result
     });
   } catch (error) {
     console.error("Forget password error:", error);
+    
+    if (error.message === "OAUTH_USER_NO_PASSWORD") {
+      return Response.json({ 
+        ok: false, 
+        error: "OAUTH_USER_NO_PASSWORD",
+        message: "This account uses Google sign-in. Please use Google to log in."
+      }, { status: 400 });
+    }
+    
     return Response.json({ ok: false, error: "SEND_CODE_FAILED" }, { status: 500 });
   }
 }
@@ -56,7 +66,7 @@ export async function verifyCode(req) {
       return Response.json({ ok: false, error: "MISSING_FIELDS" }, { status: 400 });
     }
 
-    const result = await authService.verifyResetCode(email, code);
+    const result = await authServiceInstance.verifyResetCode(email, code);
     return Response.json({ ok: true, ...result });
   } catch (error) {
     console.error("Verify code error:", error.message);
@@ -67,6 +77,10 @@ export async function verifyCode(req) {
     
     if (error.message === "CODE_EXPIRED") {
       return Response.json({ ok: false, error: "CODE_EXPIRED" }, { status: 400 });
+    }
+    
+    if (error.message === "TOO_MANY_ATTEMPTS") {
+      return Response.json({ ok: false, error: "TOO_MANY_ATTEMPTS" }, { status: 400 });
     }
     
     return Response.json({ ok: false, error: "VERIFICATION_FAILED" }, { status: 500 });
@@ -82,7 +96,7 @@ export async function reset(req) {
       return Response.json({ ok: false, error: "MISSING_FIELDS" }, { status: 400 });
     }
 
-    await authService.resetPassword(email, code, newPassword);
+    await authServiceInstance.resetPassword(email, code, newPassword);
     return Response.json({ ok: true });
   } catch (error) {
     console.error("Reset password error:", error.message);
@@ -131,7 +145,7 @@ export async function validateToken(req) {
     }
 
     // Verify code via auth service
-    await authService.verifyResetCode(email, code);
+    await authServiceInstance.verifyResetCode(email, code);
 
     return Response.json({ ok: true });
   } catch (error) {
@@ -143,5 +157,45 @@ export async function validateToken(req) {
       return Response.json({ ok: false, error: "CODE_EXPIRED" }, { status: 400 });
     }
     return Response.json({ ok: false, error: "VALIDATION_FAILED" }, { status: 500 });
+  }
+}
+
+// OAuth Callback function
+export async function oauthCallback(req) {
+  try {
+    const body = await req.json();
+    const { provider, profile, userId } = body || {};
+
+    if (!provider || !profile || !profile.email) {
+      return Response.json({ ok: false, error: "INVALID_OAUTH_DATA" }, { status: 400 });
+    }
+
+    let user;
+    
+    if (userId) {
+      // Linking OAuth to existing account
+      user = await authServiceInstance.linkOAuthProvider(userId, profile, provider);
+    } else {
+      // Creating or updating OAuth user
+      user = await authServiceInstance.createOrUpdateOAuthUser(profile, provider);
+    }
+
+    return Response.json({ 
+      ok: true, 
+      userId: String(user._id),
+      email: user.email,
+      name: user.name,
+      image: user.image,
+      provider: user.provider,
+      oauthProviders: user.oauthProviders
+    });
+  } catch (error) {
+    console.error("OAuth callback error:", error);
+    
+    if (error.message === "USER_NOT_FOUND") {
+      return Response.json({ ok: false, error: "USER_NOT_FOUND" }, { status: 404 });
+    }
+    
+    return Response.json({ ok: false, error: "OAUTH_FAILED" }, { status: 500 });
   }
 }
