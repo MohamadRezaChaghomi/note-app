@@ -7,17 +7,21 @@ import {
   deleteFolder,
   getFolderTree,
   getFolderStats,
+  getFolderDetailStats,
   reorderFolders,
   duplicateFolder,
   searchFolders,
 } from "@/services/folder.service";
+import Folder from "@/models/Folder.model";
+import Note from "@/models/Note.model";
+
+// ========== Main Folders Endpoints ==========
 
 export async function foldersGET(req, userId) {
   try {
     const { searchParams } = new URL(req.url);
     const params = Object.fromEntries(searchParams.entries());
 
-    // Handle different view types
     const view = params.view || "list";
 
     switch (view) {
@@ -76,7 +80,6 @@ export async function foldersPOST(req, userId) {
   try {
     const body = await req.json();
 
-    // Validate required fields
     if (!body.title?.trim()) {
       return Response.json(
         {
@@ -101,7 +104,6 @@ export async function foldersPOST(req, userId) {
   } catch (error) {
     console.error("Folder POST error:", error);
 
-    // Handle specific errors
     if (error.message.includes("already exists")) {
       return Response.json(
         {
@@ -110,6 +112,30 @@ export async function foldersPOST(req, userId) {
           code: "DUPLICATE_FOLDER",
         },
         { status: 409 }
+      );
+    }
+
+    if (error.message.includes("Parent folder not found")) {
+      return Response.json(
+        {
+          ok: false,
+          message: error.message,
+          code: "PARENT_NOT_FOUND",
+        },
+        { status: 404 }
+      );
+    }
+
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return Response.json(
+        {
+          ok: false,
+          message: "Validation failed",
+          errors: errors,
+          code: "VALIDATION_ERROR",
+        },
+        { status: 400 }
       );
     }
 
@@ -118,197 +144,6 @@ export async function foldersPOST(req, userId) {
         ok: false,
         message: error.message || "Failed to create folder",
         code: "CREATE_FOLDER_ERROR",
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function folderGET(_req, userId, id) {
-  try {
-    if (!mongoose.isValidObjectId(id)) {
-      return Response.json(
-        {
-          ok: false,
-          message: "Invalid folder ID format",
-          code: "INVALID_FOLDER_ID",
-        },
-        { status: 400 }
-      );
-    }
-
-    const folder = await getFolder(userId, id);
-
-    if (!folder) {
-      return Response.json(
-        {
-          ok: false,
-          message: "Folder not found",
-          code: "FOLDER_NOT_FOUND",
-        },
-        { status: 404 }
-      );
-    }
-
-    return Response.json({
-      ok: true,
-      folder,
-    });
-  } catch (error) {
-    console.error("Folder GET error:", error);
-    return Response.json(
-      {
-        ok: false,
-        message: error.message || "Failed to fetch folder",
-        code: "FETCH_FOLDER_ERROR",
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function folderPATCH(req, userId, id) {
-  try {
-    if (!mongoose.isValidObjectId(id)) {
-      return Response.json(
-        {
-          ok: false,
-          message: "Invalid folder ID format",
-          code: "INVALID_FOLDER_ID",
-        },
-        { status: 400 }
-      );
-    }
-
-    const body = await req.json();
-
-    if (!body || Object.keys(body).length === 0) {
-      return Response.json(
-        {
-          ok: false,
-          message: "No update data provided",
-          code: "NO_UPDATE_DATA",
-        },
-        { status: 400 }
-      );
-    }
-
-    const folder = await updateFolder(userId, id, body);
-
-    if (!folder) {
-      return Response.json(
-        {
-          ok: false,
-          message: "Folder not found",
-          code: "FOLDER_NOT_FOUND",
-        },
-        { status: 404 }
-      );
-    }
-
-    return Response.json({
-      ok: true,
-      folder,
-      message: "Folder updated successfully",
-    });
-  } catch (error) {
-    console.error("Folder PATCH error:", error);
-
-    if (error.message.includes("already exists")) {
-      return Response.json(
-        {
-          ok: false,
-          message: error.message,
-          code: "DUPLICATE_FOLDER",
-        },
-        { status: 409 }
-      );
-    }
-
-    if (error.message.includes("cannot be its own parent")) {
-      return Response.json(
-        {
-          ok: false,
-          message: error.message,
-          code: "CIRCULAR_REFERENCE",
-        },
-        { status: 400 }
-      );
-    }
-
-    return Response.json(
-      {
-        ok: false,
-        message: error.message || "Failed to update folder",
-        code: "UPDATE_FOLDER_ERROR",
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function folderDELETE(req, userId, id) {
-  try {
-    if (!mongoose.isValidObjectId(id)) {
-      return Response.json(
-        {
-          ok: false,
-          message: "Invalid folder ID format",
-          code: "INVALID_FOLDER_ID",
-        },
-        { status: 400 }
-      );
-    }
-
-    const { searchParams } = new URL(req.url);
-    const force = searchParams.get("force") === "true";
-    const moveNotesTo = searchParams.get("moveNotesTo");
-
-    const options = {
-      force,
-      moveNotesTo: moveNotesTo || null,
-    };
-
-    const result = await deleteFolder(userId, id, options);
-
-    if (!result) {
-      return Response.json(
-        {
-          ok: false,
-          message: "Folder not found",
-          code: "FOLDER_NOT_FOUND",
-        },
-        { status: 404 }
-      );
-    }
-
-    return Response.json({
-      ok: true,
-      message: force
-        ? "Folder permanently deleted"
-        : moveNotesTo
-        ? "Folder deleted and notes moved"
-        : "Folder moved to archive",
-    });
-  } catch (error) {
-    console.error("Folder DELETE error:", error);
-
-    if (error.message.includes("contains notes")) {
-      return Response.json(
-        {
-          ok: false,
-          message: error.message,
-          code: "FOLDER_HAS_NOTES",
-        },
-        { status: 400 }
-      );
-    }
-
-    return Response.json(
-      {
-        ok: false,
-        message: error.message || "Failed to delete folder",
-        code: "DELETE_FOLDER_ERROR",
       },
       { status: 500 }
     );
@@ -434,14 +269,327 @@ export async function foldersBulkPATCH(req, userId) {
   }
 }
 
-export async function folderDuplicatePOST(req, userId, id) {
+// ========== Single Folder Endpoints ==========
+
+export async function folderGET(_req, userId, id) {
   try {
-    if (!mongoose.isValidObjectId(id)) {
+    if (!id || typeof id !== 'string' || id.trim() === '') {
       return Response.json(
         {
           ok: false,
-          message: "Invalid folder ID format",
-          code: "INVALID_FOLDER_ID",
+          message: "Folder ID is required",
+          code: "MISSING_FOLDER_ID",
+        },
+        { status: 400 }
+      );
+    }
+
+    const folder = await getFolder(userId, id);
+
+    if (!folder) {
+      return Response.json(
+        {
+          ok: false,
+          message: "Folder not found",
+          code: "FOLDER_NOT_FOUND",
+        },
+        { status: 404 }
+      );
+    }
+
+    return Response.json({
+      ok: true,
+      folder,
+    });
+  } catch (error) {
+    console.error("Folder GET error:", error);
+    return Response.json(
+      {
+        ok: false,
+        message: error.message || "Failed to fetch folder",
+        code: "FETCH_FOLDER_ERROR",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function folderPATCH(req, userId, id) {
+  try {
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      return Response.json(
+        {
+          ok: false,
+          message: "Folder ID is required",
+          code: "MISSING_FOLDER_ID",
+        },
+        { status: 400 }
+      );
+    }
+
+    const body = await req.json();
+
+    if (!body || Object.keys(body).length === 0) {
+      return Response.json(
+        {
+          ok: false,
+          message: "No update data provided",
+          code: "NO_UPDATE_DATA",
+        },
+        { status: 400 }
+      );
+    }
+
+    const folder = await updateFolder(userId, id, body);
+
+    if (!folder) {
+      return Response.json(
+        {
+          ok: false,
+          message: "Folder not found",
+          code: "FOLDER_NOT_FOUND",
+        },
+        { status: 404 }
+      );
+    }
+
+    return Response.json({
+      ok: true,
+      folder,
+      message: "Folder updated successfully",
+    });
+  } catch (error) {
+    console.error("Folder PATCH error:", error);
+
+    if (error.message.includes("already exists")) {
+      return Response.json(
+        {
+          ok: false,
+          message: error.message,
+          code: "DUPLICATE_FOLDER",
+        },
+        { status: 409 }
+      );
+    }
+
+    if (error.message.includes("cannot be its own parent")) {
+      return Response.json(
+        {
+          ok: false,
+          message: error.message,
+          code: "CIRCULAR_REFERENCE",
+        },
+        { status: 400 }
+      );
+    }
+
+    return Response.json(
+      {
+        ok: false,
+        message: error.message || "Failed to update folder",
+        code: "UPDATE_FOLDER_ERROR",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function folderDELETE(req, userId, id) {
+  try {
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      return Response.json(
+        {
+          ok: false,
+          message: "Folder ID is required",
+          code: "MISSING_FOLDER_ID",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const force = searchParams.get("force") === "true";
+    const moveNotesTo = searchParams.get("moveNotesTo");
+
+    const options = {
+      force,
+      moveNotesTo: moveNotesTo || null,
+    };
+
+    const result = await deleteFolder(userId, id, options);
+
+    if (!result) {
+      return Response.json(
+        {
+          ok: false,
+          message: "Folder not found",
+          code: "FOLDER_NOT_FOUND",
+        },
+        { status: 404 }
+      );
+    }
+
+    return Response.json({
+      ok: true,
+      message: force
+        ? "Folder permanently deleted"
+        : moveNotesTo
+        ? "Folder deleted and notes moved"
+        : "Folder moved to archive",
+    });
+  } catch (error) {
+    console.error("Folder DELETE error:", error);
+
+    if (error.message.includes("contains notes")) {
+      return Response.json(
+        {
+          ok: false,
+          message: error.message,
+          code: "FOLDER_HAS_NOTES",
+        },
+        { status: 400 }
+      );
+    }
+
+    return Response.json(
+      {
+        ok: false,
+        message: error.message || "Failed to delete folder",
+        code: "DELETE_FOLDER_ERROR",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// ========== Folder Notes Endpoint ==========
+
+export async function folderNotesGET(req, userId, id) {
+  try {
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      return Response.json(
+        {
+          ok: false,
+          message: "Folder ID is required",
+          code: "MISSING_FOLDER_ID",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if folder exists
+    const folder = await Folder.findOne({ _id: id, userId });
+    if (!folder) {
+      return Response.json(
+        {
+          ok: false,
+          message: "Folder not found",
+          code: "FOLDER_NOT_FOUND",
+        },
+        { status: 404 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const params = Object.fromEntries(searchParams.entries());
+
+    // Build query
+    const query = { folderId: id, userId, isTrashed: false };
+    
+    if (params.archived === "true") {
+      query.isArchived = true;
+    } else if (params.archived === "false") {
+      query.isArchived = false;
+    }
+
+    // Get notes in this folder
+    const notes = await Note.find(query)
+      .sort({ updatedAt: -1 })
+      .populate("folderId", "title color")
+      .lean();
+
+    return Response.json({
+      ok: true,
+      notes,
+      count: notes.length,
+    });
+  } catch (error) {
+    console.error("Folder notes GET error:", error);
+    return Response.json(
+      {
+        ok: false,
+        message: error.message || "Failed to fetch folder notes",
+        code: "FETCH_FOLDER_NOTES_ERROR",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// ========== Folder Stats Endpoint ==========
+
+export async function folderStatsGET(_req, userId, id) {
+  try {
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      return Response.json(
+        {
+          ok: false,
+          message: "Folder ID is required",
+          code: "MISSING_FOLDER_ID",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if folder exists
+    const folder = await Folder.findOne({ _id: id, userId });
+    if (!folder) {
+      return Response.json(
+        {
+          ok: false,
+          message: "Folder not found",
+          code: "FOLDER_NOT_FOUND",
+        },
+        { status: 404 }
+      );
+    }
+
+    const stats = await getFolderDetailStats(userId, id);
+    
+    return Response.json({ 
+      ok: true, 
+      stats,
+      folder: {
+        _id: folder._id,
+        title: folder.title,
+        color: folder.color,
+        icon: folder.icon,
+        isProtected: folder.isProtected
+      }
+    });
+  } catch (error) {
+    console.error("Folder stats GET error:", error);
+    return Response.json(
+      {
+        ok: false,
+        message: error.message || "Failed to fetch folder stats",
+        code: "FETCH_FOLDER_STATS_ERROR",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// ========== Folder Duplicate Endpoint ==========
+
+export async function folderDuplicatePOST(req, userId, id) {
+  try {
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      return Response.json(
+        {
+          ok: false,
+          message: "Folder ID is required",
+          code: "MISSING_FOLDER_ID",
         },
         { status: 400 }
       );
@@ -467,56 +615,6 @@ export async function folderDuplicatePOST(req, userId, id) {
         ok: false,
         message: error.message || "Failed to duplicate folder",
         code: "DUPLICATE_FOLDER_ERROR",
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function folderNotesGET(_req, userId, id) {
-  try {
-    if (!mongoose.isValidObjectId(id)) {
-      return Response.json(
-        {
-          ok: false,
-          message: "Invalid folder ID format",
-          code: "INVALID_FOLDER_ID",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Check if folder exists
-    const folder = await Folder.findOne({ _id: id, userId });
-    if (!folder) {
-      return Response.json(
-        {
-          ok: false,
-          message: "Folder not found",
-          code: "FOLDER_NOT_FOUND",
-        },
-        { status: 404 }
-      );
-    }
-
-    // Get notes in this folder
-    const notes = await Note.find({ folderId: id, userId, isTrashed: false })
-      .sort({ updatedAt: -1 })
-      .populate("folderId", "title color")
-      .lean();
-
-    return Response.json({
-      ok: true,
-      notes,
-      count: notes.length,
-    });
-  } catch (error) {
-    console.error("Folder notes GET error:", error);
-    return Response.json(
-      {
-        ok: false,
-        message: error.message || "Failed to fetch folder notes",
-        code: "FETCH_FOLDER_NOTES_ERROR",
       },
       { status: 500 }
     );

@@ -36,8 +36,8 @@ const FolderSchema = new mongoose.Schema(
       index: true,
     },
     path: {
-      type: String,
-      default: "",
+      type: [mongoose.Schema.Types.ObjectId],
+      default: [],
       index: true,
     },
     depth: {
@@ -88,69 +88,71 @@ FolderSchema.virtual("noteCount", {
   localField: "_id",
   foreignField: "folderId",
   count: true,
+  match: { isTrashed: false }
 });
 
 FolderSchema.virtual("subfolders", {
   ref: "Folder",
   localField: "_id",
   foreignField: "parentId",
+  match: { isArchived: false }
 });
 
 FolderSchema.virtual("notes", {
   ref: "Note",
   localField: "_id",
   foreignField: "folderId",
+  match: { isTrashed: false }
 });
 
-// Middleware to update path
+// Pre-save middleware
 FolderSchema.pre("save", async function (next) {
-  if (this.isNew || this.isModified("parentId")) {
-    if (this.parentId) {
-      const parent = await this.constructor.findById(this.parentId);
-      if (parent) {
-        this.path = parent.path ? `${parent.path}/${parent._id}` : String(parent._id);
-        this.depth = parent.depth + 1;
-      }
-    } else {
-      this.path = "";
-      this.depth = 0;
-    }
-  }
-
-  // Auto-set order if not provided
-  if (this.isNew && !this.order) {
-    const maxOrder = await this.constructor
-      .findOne({ userId: this.userId, parentId: this.parentId })
-      .sort({ order: -1 })
-      .select("order");
-    this.order = maxOrder ? maxOrder.order + 1 : 0;
-  }
-
-  next();
-});
-
-// Middleware to update subfolders when parent changes
-FolderSchema.pre("findOneAndUpdate", async function (next) {
-  const update = this.getUpdate();
-  
-  if (update && update.parentId !== undefined) {
-    const folder = await this.model.findOne(this.getQuery());
-    
-    // Prevent circular reference
-    if (update.parentId && update.parentId.toString() === folder._id.toString()) {
+  try {
+    // جلوگیری از circular reference
+    if (this.parentId && this.parentId.equals(this._id)) {
       throw new Error("Folder cannot be its own parent");
     }
 
-    // Check if new parent exists
-    if (update.parentId) {
-      const parent = await this.model.findById(update.parentId);
-      if (!parent) {
-        throw new Error("Parent folder not found");
+    if (this.isNew || this.isModified("parentId")) {
+      if (this.parentId) {
+        // چک کردن وجود والد
+        const parent = await this.constructor.findById(this.parentId);
+        if (!parent) {
+          throw new Error("Parent folder not found");
+        }
+        
+        // جلوگیری از nesting بیش از حد
+        if (parent.depth >= 4) {
+          throw new Error("Maximum folder depth exceeded (max 5 levels)");
+        }
+
+        // چک کردن circular reference در مسیر
+        const parentPath = parent.path || [];
+        if (parentPath.includes(this._id)) {
+          throw new Error("Circular reference detected");
+        }
+
+        this.path = [...parentPath, parent._id];
+        this.depth = parent.depth + 1;
+      } else {
+        this.path = [];
+        this.depth = 0;
       }
     }
+
+    // Auto-set order
+    if (this.isNew && (this.order === undefined || this.order === null)) {
+      const maxOrder = await this.constructor
+        .findOne({ userId: this.userId, parentId: this.parentId })
+        .sort({ order: -1 })
+        .select("order");
+      this.order = maxOrder ? maxOrder.order + 1 : 0;
+    }
+
+    next();
+  } catch (error) {
+    next(error);
   }
-  
-  next();
 });
 
 // Static methods
@@ -199,7 +201,7 @@ FolderSchema.statics.getTree = async function (userId, parentId = null) {
 
 FolderSchema.statics.getPath = async function (folderId) {
   const path = [];
-  let current = await this.findById(folderId);
+  let current = await this.findById(folderId).select("title color parentId");
 
   while (current) {
     path.unshift({
@@ -209,7 +211,7 @@ FolderSchema.statics.getPath = async function (folderId) {
     });
     
     if (current.parentId) {
-      current = await this.findById(current.parentId);
+      current = await this.findById(current.parentId).select("title color parentId");
     } else {
       current = null;
     }
@@ -219,40 +221,47 @@ FolderSchema.statics.getPath = async function (folderId) {
 };
 
 // Instance methods
-FolderSchema.methods.toTreeJSON = function () {
-  const obj = this.toObject();
-  return {
-    ...obj,
-    hasSubfolders: obj.subfolders && obj.subfolders.length > 0,
-    hasNotes: obj.noteCount > 0,
-  };
-};
-
 FolderSchema.methods.archiveWithChildren = async function () {
-  this.isArchived = true;
-  await this.save();
+  try {
+    this.isArchived = true;
+    await this.save();
 
-  // Archive all subfolders
-  const subfolders = await this.constructor.find({ parentId: this._id });
-  for (const subfolder of subfolders) {
-    await subfolder.archiveWithChildren();
+    // Archive all subfolders
+    const subfolders = await this.constructor.find({ parentId: this._id });
+    for (const subfolder of subfolders) {
+      await subfolder.archiveWithChildren();
+    }
+
+    // Archive all notes in this folder
+    await mongoose.models.Note.updateMany(
+      { folderId: this._id },
+      { $set: { isArchived: true } }
+    );
+  } catch (error) {
+    console.error("Error archiving folder:", error);
+    throw error;
   }
-
-  // Archive all notes in this folder
-  await mongoose.models.Note.updateMany(
-    { folderId: this._id },
-    { $set: { isArchived: true } }
-  );
 };
 
 FolderSchema.methods.restoreWithChildren = async function () {
-  this.isArchived = false;
-  await this.save();
+  try {
+    this.isArchived = false;
+    await this.save();
 
-  // Restore all subfolders
-  const subfolders = await this.constructor.find({ parentId: this._id });
-  for (const subfolder of subfolders) {
-    await subfolder.restoreWithChildren();
+    // Restore all subfolders
+    const subfolders = await this.constructor.find({ parentId: this._id, isArchived: true });
+    for (const subfolder of subfolders) {
+      await subfolder.restoreWithChildren();
+    }
+
+    // Restore all notes in this folder
+    await mongoose.models.Note.updateMany(
+      { folderId: this._id, isArchived: true },
+      { $set: { isArchived: false } }
+    );
+  } catch (error) {
+    console.error("Error restoring folder:", error);
+    throw error;
   }
 };
 

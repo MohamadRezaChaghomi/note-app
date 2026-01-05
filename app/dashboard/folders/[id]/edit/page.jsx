@@ -1,21 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
   FolderPlus,
-  Type,
-  Palette,
+  Check,
   Folder,
   Lock,
   Unlock,
-  Settings,
   Loader2,
-  Check,
-  X,
-  Info,
   Briefcase,
   User,
   Lightbulb,
@@ -42,46 +37,77 @@ const iconOptions = [
   { value: "trash", label: "Trash", icon: Trash2 },
 ];
 
-export default function NewFolderPage() {
+export default function EditFolderPage() {
+  const params = useParams();
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     color: "#3b82f6",
     icon: "folder",
     isProtected: false,
-    parentId: null,
   });
+
+  const folderId = params.id;
+
+  useEffect(() => {
+    if (folderId) {
+      fetchFolder();
+    }
+  }, [folderId]);
+
+  const fetchFolder = async () => {
+    try {
+      setLoading(true);
+      console.log("🔍 Fetching folder:", folderId);
+      
+      const res = await fetch(`/api/folders/${folderId}`);
+      const data = await res.json();
+      
+      console.log("📥 Folder response:", data);
+      
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to fetch folder");
+      }
+      
+      if (data.ok && data.folder) {
+        setFormData({
+          title: data.folder.title || "",
+          description: data.folder.description || "",
+          color: data.folder.color || "#3b82f6",
+          icon: data.folder.icon || "folder",
+          isProtected: data.folder.isProtected || false,
+        });
+        console.log("✅ Folder data loaded:", data.folder);
+      } else {
+        throw new Error("Invalid folder data");
+      }
+    } catch (error) {
+      console.error("❌ Error fetching folder:", error);
+      toast.error("Failed to load folder");
+      router.push("/folders");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // اعتبارسنجی
     if (!formData.title.trim()) {
       toast.error("Folder title is required");
       return;
     }
 
-    // بررسی حداقل طول
-    if (formData.title.trim().length < 2) {
-      toast.error("Folder title must be at least 2 characters");
-      return;
-    }
-
-    // بررسی حداکثر طول
-    if (formData.title.trim().length > 100) {
-      toast.error("Folder title cannot exceed 100 characters");
-      return;
-    }
-
-    setLoading(true);
+    setSaving(true);
     
     try {
-      console.log("📤 Sending folder data:", formData);
+      console.log("📤 Updating folder:", formData);
       
-      const res = await fetch("/api/folders", {
-        method: "POST",
+      const res = await fetch(`/api/folders/${folderId}`, {
+        method: "PATCH",
         headers: { 
           "Content-Type": "application/json" 
         },
@@ -89,68 +115,36 @@ export default function NewFolderPage() {
       });
 
       const data = await res.json();
-      console.log("📥 Server response:", data);
+      console.log("📥 Update response:", data);
 
       if (!res.ok) {
-        // اگر سرور پیام خطا برگرداند
         if (data.errors) {
-          // خطاهای validation
           data.errors.forEach(error => toast.error(error));
         } else {
-          // خطای عمومی
           throw new Error(data.message || `Server error: ${res.status}`);
         }
         return;
       }
 
-      toast.success("Folder created successfully!");
+      toast.success("Folder updated successfully!");
       
-      // اگر فولدر ساخته شد، به صفحه فولدر هدایت شو
-      if (data.folder && data.folder._id) {
-        setTimeout(() => {
-          router.push(`/folders/${data.folder._id}`);
-        }, 1000);
+      // Redirect back to folder page
+      setTimeout(() => {
+        router.push(`/folders/${folderId}`);
+      }, 1000);
+      
+    } catch (error) {
+      console.error("❌ Update folder error:", error);
+      
+      if (error.message.includes("already exists")) {
+        toast.error(error.message);
+      } else if (error.message.includes("Network") || error.message.includes("Failed to fetch")) {
+        toast.error("Cannot connect to server. Please check your connection.");
       } else {
-        // اگر _id نداریم، به لیست فولدرها برگردیم
-        setTimeout(() => {
-          router.push("/folders");
-        }, 1000);
-      }
-      
-} catch (error) {
-  console.error("❌ Create folder error:", error);
-  console.error("Error details:", {
-    name: error.name,
-    message: error.message,
-    stack: error.stack
-  });
-  
-  // نمایش پیام خطای مناسب
-  let errorMessage = "Failed to create folder. Please try again.";
-  
-  if (error.message.includes("next is not a function")) {
-    errorMessage = "Server configuration error. Please contact support.";
-  } else if (error.message.includes("already exists")) {
-    errorMessage = error.message;
-  } else if (error.message.includes("Parent folder not found")) {
-    errorMessage = "The parent folder was not found.";
-  } else if (error.message.includes("Network") || error.message.includes("Failed to fetch")) {
-    errorMessage = "Cannot connect to server. Please check your connection.";
-  }
-  
-  toast.error(errorMessage);
-      console.error("❌ Create folder error:", error);
-      
-      // نمایش پیام خطای مناسب
-      if (error.message.includes("Network")) {
-        toast.error("Network error. Please check your connection.");
-      } else if (error.message.includes("Failed to fetch")) {
-        toast.error("Cannot connect to server. Please try again.");
-      } else {
-        toast.error(error.message || "Failed to create folder. Please try again.");
+        toast.error(error.message || "Failed to update folder. Please try again.");
       }
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -160,26 +154,37 @@ export default function NewFolderPage() {
 
   const IconComponent = iconOptions.find(icon => icon.value === formData.icon)?.icon || Folder;
 
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6 max-w-6xl">
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Loading folder...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4 md:p-6 max-w-6xl">
       {/* Header */}
       <div className="mb-8">
         <Link
-          href="/folders"
+          href={`/folders/${folderId}`}
           className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mb-6 transition-colors"
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
-          Back to Folders
+          Back to Folder
         </Link>
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full mb-4">
             <FolderPlus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Create New Folder
+            Edit Folder
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Organize your notes with custom folders
+            Update your folder settings
           </p>
         </div>
       </div>
@@ -198,20 +203,14 @@ export default function NewFolderPage() {
                 value={formData.title}
                 onChange={(e) => handleChange("title", e.target.value)}
                 placeholder="Enter folder name"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
-                minLength={2}
                 maxLength={100}
-                disabled={loading}
+                disabled={saving}
               />
-              <div className="flex justify-between mt-1">
-                <p className="text-sm text-gray-500">
-                  {formData.title.length}/100 characters
-                </p>
-                <p className="text-sm text-gray-500">
-                  Minimum 2 characters
-                </p>
-              </div>
+              <p className="mt-2 text-sm text-gray-500">
+                Give your folder a descriptive name
+              </p>
             </div>
 
             {/* Description */}
@@ -224,12 +223,12 @@ export default function NewFolderPage() {
                 onChange={(e) => handleChange("description", e.target.value)}
                 placeholder="Describe what this folder will contain..."
                 rows={3}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 maxLength={500}
-                disabled={loading}
+                disabled={saving}
               />
-              <p className="mt-1 text-sm text-gray-500">
-                {formData.description.length}/500 characters
+              <p className="mt-2 text-sm text-gray-500">
+                Maximum 500 characters
               </p>
             </div>
 
@@ -244,8 +243,12 @@ export default function NewFolderPage() {
                     key={color}
                     type="button"
                     onClick={() => handleChange("color", color)}
-                    disabled={loading}
-                    className={`aspect-square rounded-lg flex items-center justify-center border-2 transition-all ${formData.color === color ? "border-blue-500 dark:border-blue-400 ring-2 ring-blue-200 dark:ring-blue-800" : "border-transparent hover:border-gray-300 dark:hover:border-gray-600"} ${loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    disabled={saving}
+                    className={`aspect-square rounded-lg flex items-center justify-center border-2 transition-all ${
+                      formData.color === color 
+                        ? "border-blue-500 dark:border-blue-400 ring-2 ring-blue-200 dark:ring-blue-800" 
+                        : "border-transparent hover:border-gray-300 dark:hover:border-gray-600"
+                    } ${saving ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                     style={{ backgroundColor: color }}
                     title={`Select ${color}`}
                   >
@@ -270,8 +273,12 @@ export default function NewFolderPage() {
                       key={iconOption.value}
                       type="button"
                       onClick={() => handleChange("icon", iconOption.value)}
-                      disabled={loading}
-                      className={`aspect-square rounded-lg flex flex-col items-center justify-center border-2 transition-all ${formData.icon === iconOption.value ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-100 dark:ring-blue-800/30" : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700"} ${loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                      disabled={saving}
+                      className={`aspect-square rounded-lg flex flex-col items-center justify-center border-2 transition-all ${
+                        formData.icon === iconOption.value 
+                          ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-100 dark:ring-blue-800/30" 
+                          : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      } ${saving ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                       title={`Select ${iconOption.label} icon`}
                     >
                       <Icon className="w-5 h-5 text-gray-700 dark:text-gray-300 mb-1" />
@@ -308,41 +315,42 @@ export default function NewFolderPage() {
                     checked={formData.isProtected}
                     onChange={(e) => handleChange("isProtected", e.target.checked)}
                     className="sr-only peer"
-                    disabled={loading}
+                    disabled={saving}
                   />
-                  <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 ${loading ? "opacity-50 cursor-not-allowed" : ""}`}></div>
+                  <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 ${saving ? "opacity-50 cursor-not-allowed" : ""}`}></div>
                 </label>
               </div>
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading || !formData.title.trim() || formData.title.trim().length < 2}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-lg"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <FolderPlus className="w-5 h-5 mr-2" />
-                  Create Folder
-                </>
-              )}
-            </button>
-            
-            {/* Cancel Button */}
-            <button
-              type="button"
-              onClick={() => router.back()}
-              disabled={loading}
-              className="w-full mt-4 py-3 px-4 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 font-medium rounded-lg transition-all"
-            >
-              Cancel
-            </button>
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="submit"
+                disabled={saving || !formData.title.trim()}
+                className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center shadow-md hover:shadow-lg"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-5 h-5 mr-2" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => router.push(`/folders/${folderId}`)}
+                disabled={saving}
+                className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 font-medium rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </form>
         </div>
 
@@ -361,9 +369,9 @@ export default function NewFolderPage() {
                 >
                   <IconComponent className="w-8 h-8 text-white" />
                 </div>
-                <div className="flex-1">
+                <div>
                   <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {formData.title || "New Folder"}
+                    {formData.title || "Folder Name"}
                   </h4>
                   {formData.description ? (
                     <p className="text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
@@ -374,7 +382,7 @@ export default function NewFolderPage() {
                       No description
                     </p>
                   )}
-                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <div className="flex items-center gap-3 mt-3">
                     {formData.isProtected && (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
                         <Lock className="w-3 h-3 mr-1" />
@@ -395,41 +403,35 @@ export default function NewFolderPage() {
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-xl shadow p-6 border border-blue-100 dark:border-blue-800/30">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center shadow-sm">
-                <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <Folder className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Organization Tips
+                Editing Tips
               </h3>
             </div>
             <ul className="space-y-3">
               <li className="flex items-start gap-2">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                 <span className="text-gray-700 dark:text-gray-300">
-                  Use clear, descriptive names for easy searching
+                  Keep folder names clear and descriptive
                 </span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                 <span className="text-gray-700 dark:text-gray-300">
-                  Different colors help categorize folders visually
+                  Use colors and icons to quickly identify folders
                 </span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                 <span className="text-gray-700 dark:text-gray-300">
-                  Protected folders prevent accidental changes
+                  Protect important folders from accidental changes
                 </span>
               </li>
               <li className="flex items-start gap-2">
                 <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                 <span className="text-gray-700 dark:text-gray-300">
-                  Create subfolders for better organization
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-gray-700 dark:text-gray-300">
-                  Add descriptions to remember folder purposes
+                  Update descriptions to reflect current contents
                 </span>
               </li>
             </ul>

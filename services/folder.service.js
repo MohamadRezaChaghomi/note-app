@@ -1,8 +1,11 @@
+import mongoose from "mongoose";
+
 import { connectDB } from "@/lib/db";
 import Folder from "@/models/Folder.model";
 import Note from "@/models/Note.model";
 import ChangeLog from "@/models/ChangeLog.model";
-import { createSlug } from "@/lib/utils";
+
+// ========== CRUD Operations ==========
 
 export async function listFolders(userId, options = {}) {
   await connectDB();
@@ -20,9 +23,10 @@ export async function listFolders(userId, options = {}) {
 
   const query = { userId };
 
-  if (parentId === null) {
+  // Handle parentId
+  if (parentId === null || parentId === "" || parentId === "null") {
     query.parentId = null;
-  } else if (parentId !== undefined) {
+  } else if (parentId !== undefined && parentId !== "undefined") {
     query.parentId = parentId;
   }
 
@@ -66,15 +70,17 @@ export async function listFolders(userId, options = {}) {
   let transformedFolders = folders.map((folder) => ({
     ...folder,
     noteCount: folder.noteCount || 0,
+    _id: folder._id.toString(),
   }));
 
   // If tree view, recursively get subfolders
-  if (treeView && (!parentId && parentId !== undefined)) {
+  if (treeView && (!parentId || parentId === null)) {
     for (const folder of transformedFolders) {
       if (folder.subfolders) {
         folder.subfolders = folder.subfolders.map((sub) => ({
           ...sub,
           noteCount: sub.noteCount || 0,
+          _id: sub._id.toString(),
         }));
       }
     }
@@ -94,31 +100,36 @@ export async function listFolders(userId, options = {}) {
 export async function getFolder(userId, id) {
   await connectDB();
 
-  const folder = await Folder.findOne({ _id: id, userId })
-    .populate("noteCount")
-    .populate({
-      path: "subfolders",
-      populate: { path: "noteCount" },
-      match: { isArchived: false },
-    })
-    .lean();
+  try {
+    const folder = await Folder.findOne({ _id: id, userId })
+      .populate("noteCount")
+      .populate({
+        path: "subfolders",
+        populate: { path: "noteCount" },
+        match: { isArchived: false },
+      })
+      .lean();
 
-  if (!folder) {
+    if (!folder) {
+      return null;
+    }
+
+    // Get breadcrumb path
+    const path = await Folder.getPath(id);
+
+    return {
+      ...folder,
+      noteCount: folder.noteCount || 0,
+      subfolders: (folder.subfolders || []).map((sub) => ({
+        ...sub,
+        noteCount: sub.noteCount || 0,
+      })),
+      path,
+    };
+  } catch (error) {
+    console.error("Error in getFolder:", error);
     return null;
   }
-
-  // Get breadcrumb path
-  const path = await Folder.getPath(id);
-
-  return {
-    ...folder,
-    noteCount: folder.noteCount || 0,
-    subfolders: (folder.subfolders || []).map((sub) => ({
-      ...sub,
-      noteCount: sub.noteCount || 0,
-    })),
-    path,
-  };
 }
 
 export async function createFolder(userId, data) {
@@ -140,6 +151,14 @@ export async function createFolder(userId, data) {
     throw new Error(`A folder named "${data.title}" already exists in this location`);
   }
 
+  // Validate parent folder exists
+  if (data.parentId) {
+    const parentFolder = await Folder.findOne({ _id: data.parentId, userId });
+    if (!parentFolder) {
+      throw new Error("Parent folder not found");
+    }
+  }
+
   const folderData = {
     userId,
     title: data.title.trim(),
@@ -155,33 +174,19 @@ export async function createFolder(userId, data) {
 
   const folder = await Folder.create(folderData);
 
-  // Create default subfolders
-  if (data.createDefaultSubfolders) {
-    const defaultSubfolders = [
-      { title: "Notes", icon: "folder", color: "#3b82f6" },
-      { title: "Archive", icon: "archive", color: "#6b7280" },
-      { title: "Trash", icon: "trash", color: "#ef4444" },
-    ];
-
-    for (const subfolder of defaultSubfolders) {
-      await Folder.create({
-        userId,
-        parentId: folder._id,
-        ...subfolder,
-      });
-    }
-  }
-
+  // Create changelog
   await ChangeLog.create({
     userId,
     entityType: "folder",
-    entityId: folder._id,
+    entityId: folder._id.toString(),
     action: "create",
-    changes: Object.keys(folderData).map((key) => ({
-      field: key,
-      oldValue: null,
-      newValue: folderData[key],
-    })),
+    meta: {
+      changes: Object.keys(folderData).map((key) => ({
+        field: key,
+        oldValue: null,
+        newValue: folderData[key],
+      })),
+    },
   });
 
   return await getFolder(userId, folder._id);
@@ -260,9 +265,9 @@ export async function updateFolder(userId, id, updates) {
     await ChangeLog.create({
       userId,
       entityType: "folder",
-      entityId: id,
+      entityId: id.toString(),
       action: "update",
-      changes,
+      meta: { changes },
     });
   }
 
@@ -319,9 +324,9 @@ export async function deleteFolder(userId, id, options = {}) {
     await ChangeLog.create({
       userId,
       entityType: "folder",
-      entityId: id,
+      entityId: id.toString(),
       action: "delete",
-      data: JSON.stringify(folder),
+      meta: { folderData: folder.toObject() },
     });
     
     return result.deletedCount === 1;
@@ -332,51 +337,19 @@ export async function deleteFolder(userId, id, options = {}) {
   }
 }
 
-export async function getFolderTree(userId) {
-  await connectDB();
-  return await Folder.getTree(userId);
-}
+// ========== Statistics ==========
 
 export async function getFolderStats(userId) {
   await connectDB();
 
-  const [totalFolders, archivedFolders, foldersWithNotes, totalNotes] = await Promise.all([
+  const [totalFolders, archivedFolders, totalNotes] = await Promise.all([
     Folder.countDocuments({ userId, isArchived: false }),
     Folder.countDocuments({ userId, isArchived: true }),
-    Folder.aggregate([
-      { $match: { userId, isArchived: false } },
-      {
-        $lookup: {
-          from: "notes",
-          let: { folderId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$folderId", "$$folderId"] },
-                    { $eq: ["$isTrashed", false] },
-                  ],
-                },
-              },
-            },
-            { $count: "count" },
-          ],
-          as: "notes",
-        },
-      },
-      {
-        $match: {
-          "notes.count": { $gt: 0 },
-        },
-      },
-      { $count: "count" },
-    ]),
     Note.countDocuments({ userId, isTrashed: false }),
   ]);
 
-  // Get folder size distribution
-  const sizeDistribution = await Folder.aggregate([
+  // Get folders with notes count
+  const foldersWithNotesResult = await Folder.aggregate([
     { $match: { userId, isArchived: false } },
     {
       $lookup: {
@@ -393,39 +366,64 @@ export async function getFolderStats(userId) {
               },
             },
           },
-          { $count: "count" },
         ],
-        as: "notes",
+        as: "folderNotes",
       },
     },
     {
       $project: {
         title: 1,
-        noteCount: { $arrayElemAt: ["$notes.count", 0] },
+        noteCount: { $size: "$folderNotes" },
       },
     },
     {
-      $bucket: {
-        groupBy: "$noteCount",
-        boundaries: [0, 1, 5, 10, 20, 50, 100],
-        default: "100+",
-        output: {
-          count: { $sum: 1 },
-          folders: { $push: { title: "$title", count: "$noteCount" } },
-        },
+      $match: {
+        noteCount: { $gt: 0 },
       },
     },
+    { $count: "count" },
   ]);
+
+  const foldersWithNotes = foldersWithNotesResult[0]?.count || 0;
 
   return {
     total: totalFolders,
     archived: archivedFolders,
-    foldersWithNotes: foldersWithNotes[0]?.count || 0,
-    emptyFolders: totalFolders - (foldersWithNotes[0]?.count || 0),
+    foldersWithNotes,
+    emptyFolders: totalFolders - foldersWithNotes,
     totalNotes,
-    sizeDistribution,
   };
 }
+
+export async function getFolderDetailStats(userId, folderId) {
+  await connectDB();
+
+  try {
+    const [noteCount, archivedNoteCount, subfolderCount] = await Promise.all([
+      Note.countDocuments({ folderId, userId, isTrashed: false }),
+      Note.countDocuments({ folderId, userId, isArchived: true, isTrashed: false }),
+      Folder.countDocuments({ parentId: folderId, userId, isArchived: false }),
+    ]);
+
+    return {
+      totalNotes: noteCount,
+      archivedNotes: archivedNoteCount,
+      subfoldersCount: subfolderCount,
+    };
+  } catch (error) {
+    console.error("Error in getFolderDetailStats:", error);
+    throw error;
+  }
+}
+
+// ========== Tree & Structure ==========
+
+export async function getFolderTree(userId) {
+  await connectDB();
+  return await Folder.getTree(userId);
+}
+
+// ========== Reordering ==========
 
 export async function reorderFolders(userId, folderIds) {
   await connectDB();
@@ -442,16 +440,21 @@ export async function reorderFolders(userId, folderIds) {
   await ChangeLog.create({
     userId,
     entityType: "folder",
+    entityId: "bulk_reorder",
     action: "reorder",
-    changes: folderIds.map((id, index) => ({
-      field: "order",
-      folderId: id,
-      newValue: index,
-    })),
+    meta: {
+      changes: folderIds.map((id, index) => ({
+        field: "order",
+        folderId: id.toString(),
+        newValue: index,
+      })),
+    },
   });
 
   return true;
 }
+
+// ========== Duplication ==========
 
 export async function duplicateFolder(userId, folderId, newParentId = null) {
   await connectDB();
@@ -486,13 +489,15 @@ export async function duplicateFolder(userId, folderId, newParentId = null) {
   await ChangeLog.create({
     userId,
     entityType: "folder",
-    entityId: duplicateFolder._id,
+    entityId: duplicateFolder._id.toString(),
     action: "duplicate",
-    sourceFolderId: folderId,
+    meta: { sourceFolderId: folderId.toString() },
   });
 
   return await getFolder(userId, duplicateFolder._id);
 }
+
+// ========== Search ==========
 
 export async function searchFolders(userId, query, options = {}) {
   await connectDB();
@@ -506,7 +511,10 @@ export async function searchFolders(userId, query, options = {}) {
 
   const searchQuery = {
     userId,
-    $text: { $search: query },
+    $or: [
+      { title: { $regex: query, $options: "i" } },
+      { description: { $regex: query, $options: "i" } },
+    ],
   };
 
   if (!includeArchived) {
@@ -518,7 +526,7 @@ export async function searchFolders(userId, query, options = {}) {
       .select("title description color icon parentId path")
       .skip(offset)
       .limit(limit)
-      .sort({ score: { $meta: "textScore" } })
+      .sort({ createdAt: -1 })
       .lean(),
     Folder.countDocuments(searchQuery),
   ]);
@@ -542,12 +550,12 @@ export async function searchFolders(userId, query, options = {}) {
     ]);
 
     const noteCountMap = noteCounts.reduce((map, item) => {
-      map[item._id] = item.count;
+      map[item._id.toString()] = item.count;
       return map;
     }, {});
 
     folders.forEach((folder) => {
-      folder.noteCount = noteCountMap[folder._id] || 0;
+      folder.noteCount = noteCountMap[folder._id.toString()] || 0;
     });
   }
 
@@ -561,3 +569,18 @@ export async function searchFolders(userId, query, options = {}) {
     },
   };
 }
+
+// ========== Export all functions ==========
+export {
+  listFolders,
+  getFolder,
+  createFolder,
+  updateFolder,
+  deleteFolder,
+  getFolderTree,
+  getFolderStats,
+  getFolderDetailStats,
+  reorderFolders,
+  duplicateFolder,
+  searchFolders,
+};
