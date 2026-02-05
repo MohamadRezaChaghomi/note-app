@@ -73,16 +73,6 @@ export const TagService = {
   // Create new tag
   async createTag(userId, tagData) {
     try {
-      // Check if tag already exists
-      const existing = await Tag.findOne({
-        userId,
-        name: tagData.name.toLowerCase(),
-      });
-
-      if (existing) {
-        throw new Error('Tag with this name already exists');
-      }
-
       const tag = new Tag({
         userId,
         name: tagData.name.toLowerCase(),
@@ -94,6 +84,10 @@ export const TagService = {
       await tag.save();
       return tag;
     } catch (error) {
+      // Handle MongoDB duplicate key error
+      if (error.code === 11000 && error.keyPattern.name) {
+        throw new Error('Tag with this name already exists');
+      }
       throw new Error(`Failed to create tag: ${error.message}`);
     }
   },

@@ -196,7 +196,13 @@ export default function Sidebar({ onClose }) {
           
           {expandedSections.main && (
             <div className="nav-items">
-              {mainItems.map(item => {
+              {mainItems.filter(item => {
+                // Hide Report link for non-admin users
+                if (item.href === "/dashboard/report" && session?.user?.role !== "admin") {
+                  return false;
+                }
+                return true;
+              }).map(item => {
                 const Icon = item.icon;
                 const active = isActive(item.href, item.exact);
                 const badgeText = getBadgeText(item);

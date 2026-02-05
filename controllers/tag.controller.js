@@ -12,7 +12,12 @@ export async function getTags(req, userId, query) {
   };
 
   const result = await TagService.getTags(userId, filters);
-  return result;
+  
+  // Return complete tag objects with all properties
+  return {
+    tags: result.tags,
+    pagination: result.pagination,
+  };
 }
 
 export async function getTag(req, tagId, userId) {

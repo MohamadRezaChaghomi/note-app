@@ -2,44 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  FolderPlus,
-  Type,
-  Palette,
-  Folder,
-  Lock,
-  Unlock,
-  Settings,
-  Loader2,
-  Check,
-  X,
-  Info,
-  Briefcase,
-  User,
-  Lightbulb,
-  FolderTree,
-  Star,
-  Archive,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, FolderPlus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
+import "@styles/NewFolderPage.css";
 
 const colorOptions = [
-  "#3b82f6", "#10b981", "#f59e0b", "#ef4444",
-  "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"
-];
-
-const iconOptions = [
-  { value: "folder", label: "Folder", icon: Folder },
-  { value: "work", label: "Work", icon: Briefcase },
-  { value: "personal", label: "Personal", icon: User },
-  { value: "ideas", label: "Ideas", icon: Lightbulb },
-  { value: "projects", label: "Projects", icon: FolderTree },
-  { value: "star", label: "Star", icon: Star },
-  { value: "archive", label: "Archive", icon: Archive },
-  { value: "trash", label: "Trash", icon: Trash2 },
+  "#3b82f6", // blue-500
+  "#10b981", // emerald-500
+  "#f59e0b", // amber-500
+  "#ef4444", // red-500
+  "#8b5cf6", // violet-500
+  "#ec4899", // pink-500
+  "#06b6d4", // cyan-500
+  "#84cc16", // lime-500
 ];
 
 export default function NewFolderPage() {
@@ -48,392 +24,149 @@ export default function NewFolderPage() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    color: "#3b82f6",
-    icon: "folder",
-    isProtected: false,
-    parentId: null,
+    color: colorOptions[0],
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // اعتبارسنجی
+
     if (!formData.title.trim()) {
       toast.error("Folder title is required");
       return;
     }
 
-    // بررسی حداقل طول
-    if (formData.title.trim().length < 2) {
-      toast.error("Folder title must be at least 2 characters");
-      return;
-    }
-
-    // بررسی حداکثر طول
-    if (formData.title.trim().length > 100) {
-      toast.error("Folder title cannot exceed 100 characters");
-      return;
-    }
-
     setLoading(true);
-    
+
     try {
-      console.log("📤 Sending folder data:", formData);
-      
       const res = await fetch("/api/folders", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json" 
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
       const data = await res.json();
-      console.log("📥 Server response:", data);
 
-      if (!res.ok) {
-        // اگر سرور پیام خطا برگرداند
-        if (data.errors) {
-          // خطاهای validation
-          data.errors.forEach(error => toast.error(error));
-        } else {
-          // خطای عمومی
-          throw new Error(data.message || `Server error: ${res.status}`);
-        }
-        return;
-      }
+      if (!res.ok) throw new Error(data.message);
 
       toast.success("Folder created successfully!");
-      
-      // اگر فولدر ساخته شد، به صفحه فولدر هدایت شو
-      if (data.folder && data.folder._id) {
-        setTimeout(() => {
-          router.push(`/folders/${data.folder._id}`);
-        }, 1000);
-      } else {
-        // اگر _id نداریم، به لیست فولدرها برگردیم
-        setTimeout(() => {
-          router.push("/folders");
-        }, 1000);
-      }
-      
-} catch (error) {
-  console.error("❌ Create folder error:", error);
-  console.error("Error details:", {
-    name: error.name,
-    message: error.message,
-    stack: error.stack
-  });
-  
-  // نمایش پیام خطای مناسب
-  let errorMessage = "Failed to create folder. Please try again.";
-  
-  if (error.message.includes("next is not a function")) {
-    errorMessage = "Server configuration error. Please contact support.";
-  } else if (error.message.includes("already exists")) {
-    errorMessage = error.message;
-  } else if (error.message.includes("Parent folder not found")) {
-    errorMessage = "The parent folder was not found.";
-  } else if (error.message.includes("Network") || error.message.includes("Failed to fetch")) {
-    errorMessage = "Cannot connect to server. Please check your connection.";
-  }
-  
-  toast.error(errorMessage);
-      console.error("❌ Create folder error:", error);
-      
-      // نمایش پیام خطای مناسب
-      if (error.message.includes("Network")) {
-        toast.error("Network error. Please check your connection.");
-      } else if (error.message.includes("Failed to fetch")) {
-        toast.error("Cannot connect to server. Please try again.");
-      } else {
-        toast.error(error.message || "Failed to create folder. Please try again.");
-      }
+      router.push("/folders");
+    } catch (error) {
+      toast.error(error.message || "Failed to create folder");
     } finally {
       setLoading(false);
     }
   };
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const IconComponent = iconOptions.find(icon => icon.value === formData.icon)?.icon || Folder;
-
   return (
-    <div className="container mx-auto p-4 md:p-6 max-w-6xl">
-      {/* Header */}
-      <div className="mb-8">
-        <Link
-          href="/folders"
-          className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Back to Folders
-        </Link>
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full mb-4">
-            <FolderPlus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+    <div className="new-folder-page theme-transition">
+      <div className="new-folder-container">
+        <div className="new-folder-header">
+          <Link href="/folders" className="back-link">
+            <ArrowLeft className="back-link-icon" />
+            Back to Folders
+          </Link>
+          
+          <div className="header-content">
+            <div className="header-icon-container">
+              <FolderPlus className="header-icon" />
+            </div>
+            <h1 className="header-title">Create New Folder</h1>
+            <p className="header-subtitle">Organize your notes with folders</p>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Create New Folder
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Organize your notes with custom folders
-          </p>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Form */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-          <form onSubmit={handleSubmit}>
-            {/* Title */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Folder Name *
-              </label>
+        <div className="form-container">
+          <form onSubmit={handleSubmit} className={loading ? "loading" : ""}>
+            <div className="form-field">
+              <label className="form-label required">Folder Name</label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => handleChange("title", e.target.value)}
                 placeholder="Enter folder name"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="form-input"
                 required
-                minLength={2}
-                maxLength={100}
                 disabled={loading}
               />
-              <div className="flex justify-between mt-1">
-                <p className="text-sm text-gray-500">
-                  {formData.title.length}/100 characters
-                </p>
-                <p className="text-sm text-gray-500">
-                  Minimum 2 characters
-                </p>
-              </div>
             </div>
 
-            {/* Description */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Description (Optional)
-              </label>
+            <div className="form-field">
+              <label className="form-label">Description (Optional)</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => handleChange("description", e.target.value)}
                 placeholder="Describe what this folder will contain..."
                 rows={3}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                maxLength={500}
+                className="form-textarea"
                 disabled={loading}
               />
-              <p className="mt-1 text-sm text-gray-500">
-                {formData.description.length}/500 characters
-              </p>
             </div>
 
-            {/* Color Selection */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Folder Color
-              </label>
-              <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+            <div className="color-selection">
+              <label className="form-label">Folder Color</label>
+              <div className="color-grid">
                 {colorOptions.map((color) => (
                   <button
                     key={color}
                     type="button"
                     onClick={() => handleChange("color", color)}
                     disabled={loading}
-                    className={`aspect-square rounded-lg flex items-center justify-center border-2 transition-all ${formData.color === color ? "border-blue-500 dark:border-blue-400 ring-2 ring-blue-200 dark:ring-blue-800" : "border-transparent hover:border-gray-300 dark:hover:border-gray-600"} ${loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    className={`color-option ${
+                      formData.color === color ? "selected" : ""
+                    }`}
                     style={{ backgroundColor: color }}
-                    title={`Select ${color}`}
-                  >
-                    {formData.color === color && (
-                      <Check className="w-5 h-5 text-white drop-shadow" />
-                    )}
-                  </button>
+                    aria-label={`Select color ${color}`}
+                  />
                 ))}
               </div>
             </div>
 
-            {/* Icon Selection */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Folder Icon
-              </label>
-              <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
-                {iconOptions.map((iconOption) => {
-                  const Icon = iconOption.icon;
-                  return (
-                    <button
-                      key={iconOption.value}
-                      type="button"
-                      onClick={() => handleChange("icon", iconOption.value)}
-                      disabled={loading}
-                      className={`aspect-square rounded-lg flex flex-col items-center justify-center border-2 transition-all ${formData.icon === iconOption.value ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-100 dark:ring-blue-800/30" : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700"} ${loading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                      title={`Select ${iconOption.label} icon`}
-                    >
-                      <Icon className="w-5 h-5 text-gray-700 dark:text-gray-300 mb-1" />
-                      <span className="text-xs text-gray-600 dark:text-gray-400">
-                        {iconOption.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Protection Toggle */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                <div className="flex items-center gap-3">
-                  {formData.isProtected ? (
-                    <Lock className="w-5 h-5 text-amber-500" />
-                  ) : (
-                    <Unlock className="w-5 h-5 text-gray-500" />
-                  )}
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      Protected Folder
-                    </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Prevent accidental deletion or modification
-                    </p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.isProtected}
-                    onChange={(e) => handleChange("isProtected", e.target.checked)}
-                    className="sr-only peer"
-                    disabled={loading}
-                  />
-                  <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 ${loading ? "opacity-50 cursor-not-allowed" : ""}`}></div>
-                </label>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading || !formData.title.trim() || formData.title.trim().length < 2}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-lg"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <FolderPlus className="w-5 h-5 mr-2" />
-                  Create Folder
-                </>
-              )}
-            </button>
-            
-            {/* Cancel Button */}
-            <button
-              type="button"
-              onClick={() => router.back()}
-              disabled={loading}
-              className="w-full mt-4 py-3 px-4 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 font-medium rounded-lg transition-all"
-            >
-              Cancel
-            </button>
-          </form>
-        </div>
-
-        {/* Preview */}
-        <div className="space-y-6">
-          {/* Preview Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Preview
-            </h3>
-            <div className="p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-              <div className="flex items-center gap-4">
+            <div className="preview-section">
+              <h3 className="preview-title">Preview</h3>
+              <div className="preview-content">
                 <div
-                  className="w-16 h-16 rounded-xl flex items-center justify-center shadow-md"
+                  className="preview-icon"
                   style={{ backgroundColor: formData.color }}
-                >
-                  <IconComponent className="w-8 h-8 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {formData.title || "New Folder"}
-                  </h4>
-                  {formData.description ? (
-                    <p className="text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                      {formData.description}
-                    </p>
-                  ) : (
-                    <p className="text-gray-400 dark:text-gray-500 italic mt-1">
-                      No description
-                    </p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-2 mt-3">
-                    {formData.isProtected && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
-                        <Lock className="w-3 h-3 mr-1" />
-                        Protected
-                      </span>
-                    )}
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 border border-gray-300 dark:border-gray-600">
-                      <Folder className="w-3 h-3 mr-1" />
-                      {formData.icon.charAt(0).toUpperCase() + formData.icon.slice(1)}
-                    </span>
-                  </div>
+                />
+                <div className="preview-text">
+                  <h4 className="preview-folder-name">{formData.title}</h4>
+                  <p className="preview-description">{formData.description}</p>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Tips */}
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/10 rounded-xl shadow p-6 border border-blue-100 dark:border-blue-800/30">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center shadow-sm">
-                <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Organization Tips
-              </h3>
+            <div className="form-actions">
+              <button
+                type="submit"
+                disabled={loading || !formData.title.trim()}
+                className="submit-btn"
+              >
+                {loading ? (
+                  <span className="submit-btn-loading">
+                    <Loader2 className="submit-btn-spinner" />
+                    Creating...
+                  </span>
+                ) : (
+                  <>
+                    <FolderPlus className="header-icon" />
+                    Create Folder
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => router.back()}
+                disabled={loading}
+                className="cancel-btn"
+              >
+                Cancel
+              </button>
             </div>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-2">
-                <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-gray-700 dark:text-gray-300">
-                  Use clear, descriptive names for easy searching
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-gray-700 dark:text-gray-300">
-                  Different colors help categorize folders visually
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-gray-700 dark:text-gray-300">
-                  Protected folders prevent accidental changes
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-gray-700 dark:text-gray-300">
-                  Create subfolders for better organization
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                <span className="text-gray-700 dark:text-gray-300">
-                  Add descriptions to remember folder purposes
-                </span>
-              </li>
-            </ul>
-          </div>
+          </form>
         </div>
       </div>
     </div>

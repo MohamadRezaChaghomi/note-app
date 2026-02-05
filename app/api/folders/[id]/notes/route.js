@@ -3,7 +3,8 @@ import { folderNotesGET } from "@/controllers/folder.controller";
 
 export async function GET(req, { params }) {
   try {
-    console.log(`📥 GET /api/folders/${params.id}/notes`);
+    const { id } = await params;
+    console.log(`📥 GET /api/folders/${id}/notes`);
     
     const uid = await requireUserId();
     
@@ -16,7 +17,6 @@ export async function GET(req, { params }) {
     }
     
     console.log("✅ User authenticated:", uid);
-    const { id } = params;
     
     if (!id) {
       return Response.json(

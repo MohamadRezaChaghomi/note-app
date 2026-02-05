@@ -1,3 +1,4 @@
+// app/providers.jsx - نسخه اصلاح شده
 "use client";
 
 import { SessionProvider } from "next-auth/react";
@@ -9,7 +10,7 @@ import { useState, useEffect } from "react";
 import Script from "next/script";
 import SessionTimeout from "@/components/ui/SessionTimeout";
 
-export default function Providers({ children }) {
+export default function Providers({ children, session }) { // دریافت session از props
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -26,7 +27,11 @@ export default function Providers({ children }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SessionProvider refetchInterval={10 * 60}>
+      <SessionProvider 
+        session={session} // پاس دادن session به SessionProvider
+        refetchInterval={5 * 60} // هر 5 دقیقه refresh
+        refetchOnWindowFocus={true}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

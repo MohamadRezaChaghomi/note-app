@@ -13,7 +13,7 @@ export async function GET(req, { params }) {
       );
     }
 
-    const { tagId } = params;
+    const { tagId } = await params;
     const tag = await tagController.getTag(req, tagId, session.user.id);
 
     return new Response(
@@ -40,7 +40,7 @@ export async function PATCH(req, { params }) {
       );
     }
 
-    const { tagId } = params;
+    const { tagId } = await params;
     const { action, ...body } = await req.json();
 
     if (action === "toggleFavorite") {
@@ -77,7 +77,7 @@ export async function DELETE(req, { params }) {
       );
     }
 
-    const { tagId } = params;
+    const { tagId } = await params;
     const tag = await tagController.deleteTag(req, tagId, session.user.id);
 
     return new Response(

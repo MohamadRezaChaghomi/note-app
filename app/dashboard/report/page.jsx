@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, Legend
@@ -8,7 +10,7 @@ import {
 import {
   Download, Users, FileText, Tag, TrendingUp, Calendar,
   Loader2, AlertCircle, BarChart3, Clock, UserCheck,
-  ChevronUp, ChevronDown, Minus
+  ChevronUp, ChevronDown, Minus, Lock
 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -17,13 +19,28 @@ import "@/styles/report.css";
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'];
 
 export default function ReportPage() {
+  const { data: session } = useSession();
+  const router = useRouter();
+  
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timeRange, setTimeRange] = useState('14days');
   const [exporting, setExporting] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin and redirect if not
+  useEffect(() => {
+    if (session && session.user?.role !== 'admin') {
+      router.push('/dashboard');
+    } else if (session?.user?.role === 'admin') {
+      setIsAdmin(true);
+    }
+  }, [session, router]);
 
   useEffect(() => {
+    if (!isAdmin) return;
+
     async function load() {
       try {
         setLoading(true);
@@ -51,7 +68,7 @@ export default function ReportPage() {
     }
     
     load();
-  }, [timeRange]);
+  }, [timeRange, isAdmin]);
 
   const handleExportPDF = useCallback(async () => {
     try {
@@ -188,9 +205,29 @@ export default function ReportPage() {
       <div className="report-container">
         <div className="loading-overlay">
           <Loader2 className="w-12 h-12 animate-spin text-primary" />
-          <p className="mt-4 text-gray-600">Generating report...</p>
-          <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Check if not admin
+  if (!isAdmin) {
+    return (
+      <div className="report-container">
+        <Card className="error-state">
+          <Lock className="w-16 h-16 text-red-500 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h3>
+          <p className="text-gray-600 mb-6 max-w-md text-center">
+            Only administrators can view the system analytics dashboard.
+          </p>
+          <Button 
+            onClick={() => router.push('/dashboard')} 
+            className="retry-btn bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Go to Dashboard
+          </Button>
+        </Card>
       </div>
     );
   }

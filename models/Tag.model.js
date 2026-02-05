@@ -81,22 +81,6 @@ TagSchema.virtual("noteCount", {
   count: true,
 });
 
-// Middleware to update usage count
-TagSchema.pre("save", async function (next) {
-  if (this.isNew) {
-    // Check for duplicate tag name
-    const existingTag = await this.constructor.findOne({
-      userId: this.userId,
-      name: this.name,
-    });
-    
-    if (existingTag) {
-      throw new Error(`Tag "${this.name}" already exists`);
-    }
-  }
-  next();
-});
-
 // Static methods
 TagSchema.statics.findByUser = function (userId, options = {}) {
   const query = this.find({ userId });

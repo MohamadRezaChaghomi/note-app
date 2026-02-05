@@ -1,20 +1,23 @@
 import NextAuth from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 
-// این تابع فقط برای محیط توسعه - حذف در تولید
-function withRecaptchaDevSupport(authOptions) {
-  if (process.env.NODE_ENV === 'development') {
+// حل مشکل reCAPTCHA در محیط توسعه
+const isDevelopment = process.env.NODE_ENV === 'development';
+const verifyRecaptchaInDev = process.env.VERIFY_RECAPTCHA_IN_DEV === 'true';
+
+// تنظیمات توسعه
+const getAuthOptions = () => {
+  if (isDevelopment && !verifyRecaptchaInDev) {
     return {
       ...authOptions,
       providers: authOptions.providers.map(provider => {
         if (provider.id === "credentials") {
           return {
             ...provider,
-            async authorize(credentials) {
-              // در محیط توسعه، reCAPTCHA را نادیده بگیر
-              const creds = { ...credentials };
-              delete creds.recaptchaToken;
-              return provider.authorize(creds);
+            async authorize(credentials, req) {
+              // حذف recaptchaToken در توسعه
+              const { recaptchaToken, ...rest } = credentials;
+              return provider.authorize(rest, req);
             }
           };
         }
@@ -23,8 +26,8 @@ function withRecaptchaDevSupport(authOptions) {
     };
   }
   return authOptions;
-}
+};
 
-const handler = NextAuth(withRecaptchaDevSupport(authOptions));
+const handler = NextAuth(getAuthOptions());
 
 export { handler as GET, handler as POST };

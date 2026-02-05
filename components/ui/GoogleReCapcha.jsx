@@ -11,17 +11,19 @@ export default function GoogleReCaptcha({
   showScore = false,
   autoLoad = true
 }) {
+  const [isMounted, setIsMounted] = useState(false);
   const [token, setToken] = useState(null);
   const [score, setScore] = useState(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   
   const scriptRef = useRef(null);
   const mountedRef = useRef(true);
 
-  // Cleanup on unmount
+  // Set isMounted to true after component mounts (client-side only)
   useEffect(() => {
+    setIsMounted(true);
     return () => {
       mountedRef.current = false;
       if (scriptRef.current) {
@@ -30,21 +32,36 @@ export default function GoogleReCaptcha({
     };
   }, []);
 
-  // Load reCAPTCHA script
+  // Load reCAPTCHA script - فقط در کلاینت اجرا شود
   const loadScript = useCallback(() => {
-    if (typeof window === 'undefined') return;
+    if (!isMounted || typeof window === 'undefined') return;
 
-    if (window.grecaptcha) {
-      setIsLoaded(true);
+    // اگر در محیط توسعه و reCAPTCHA غیرفعال است
+    if (process.env.NODE_ENV === 'development' && 
+        process.env.VERIFY_RECAPTCHA_IN_DEV === 'false') {
+      setIsReady(true);
       return;
     }
 
-    // Check if script is already being loaded
+    if (window.grecaptcha) {
+      window.grecaptcha.ready(() => {
+        if (mountedRef.current) {
+          setIsReady(true);
+        }
+      });
+      return;
+    }
+
+    // بررسی آیا اسکریپت در حال لود شدن است
     if (document.querySelector('script[src*="recaptcha"]')) {
       const checkInterval = setInterval(() => {
         if (window.grecaptcha) {
           clearInterval(checkInterval);
-          setIsLoaded(true);
+          window.grecaptcha.ready(() => {
+            if (mountedRef.current) {
+              setIsReady(true);
+            }
+          });
         }
       }, 100);
       return;
@@ -56,25 +73,35 @@ export default function GoogleReCaptcha({
     script.defer = true;
     
     script.onload = () => {
-      if (mountedRef.current) {
-        setIsLoaded(true);
+      if (window.grecaptcha) {
+        window.grecaptcha.ready(() => {
+          if (mountedRef.current) {
+            setIsReady(true);
+          }
+        });
       }
     };
     
     script.onerror = () => {
       if (mountedRef.current) {
-        setError('Failed to load reCAPTCHA script. Please check your connection.');
+        setError('Failed to load reCAPTCHA script.');
       }
     };
     
     document.head.appendChild(script);
     scriptRef.current = script;
-  }, []);
+  }, [isMounted]);
 
   // Execute reCAPTCHA
   const executeRecaptcha = useCallback(async () => {
-    if (!isLoaded || !window.grecaptcha) {
-      setError('reCAPTCHA is not ready');
+    if (!isReady || !isMounted) return;
+
+    if (process.env.NODE_ENV === 'development' && 
+        process.env.VERIFY_RECAPTCHA_IN_DEV === 'false') {
+      const dummyToken = 'development-dummy-token';
+      setToken(dummyToken);
+      onVerify?.(dummyToken);
+      if (showScore) setScore(0.95);
       return;
     }
 
@@ -83,28 +110,35 @@ export default function GoogleReCaptcha({
 
     try {
       const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
-      if (!siteKey) {
-        throw new Error('reCAPTCHA site key is not configured');
-      }
+      if (!siteKey) throw new Error('reCAPTCHA site key is not configured');
 
-      const freshToken = await window.grecaptcha.execute(siteKey, { action });
+      if (!window.grecaptcha) throw new Error('grecaptcha object not found');
+
+      const freshToken = await new Promise((resolve, reject) => {
+        window.grecaptcha.ready(async () => {
+          try {
+            const token = await window.grecaptcha.execute(siteKey, { action });
+            resolve(token);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      });
       
       if (mountedRef.current) {
         setToken(freshToken);
         onVerify?.(freshToken);
         
-        // Simulate score for demo (remove in production)
         if (showScore) {
           setTimeout(() => {
             if (mountedRef.current) {
-              setScore(0.9 + Math.random() * 0.1); // Random score between 0.9-1.0
+              setScore(0.9 + Math.random() * 0.1);
             }
           }, 500);
         }
       }
     } catch (err) {
       if (mountedRef.current) {
-        console.error('reCAPTCHA execution error:', err);
         setError(err.message || 'Failed to execute reCAPTCHA');
         setToken(null);
       }
@@ -113,29 +147,52 @@ export default function GoogleReCaptcha({
         setIsLoading(false);
       }
     }
-  }, [isLoaded, action, onVerify, showScore]);
+  }, [isReady, isMounted, action, onVerify, showScore]);
 
-  // Initial load and execute
+  // Initial load
   useEffect(() => {
-    if (autoLoad) {
+    if (isMounted && autoLoad) {
       loadScript();
     }
-  }, [autoLoad, loadScript]);
+  }, [isMounted, autoLoad, loadScript]);
 
-  // Execute when script loads
+  // Execute when ready
   useEffect(() => {
-    if (isLoaded && autoLoad) {
+    if (isMounted && isReady && autoLoad) {
       executeRecaptcha();
     }
-  }, [isLoaded, autoLoad, executeRecaptcha]);
+  }, [isMounted, isReady, autoLoad, executeRecaptcha]);
 
   // Manual refresh
   const refreshRecaptcha = useCallback(async () => {
+    if (!isMounted) return;
     setToken(null);
     setScore(null);
     setError(null);
     await executeRecaptcha();
-  }, [executeRecaptcha]);
+  }, [isMounted, executeRecaptcha]);
+
+  // در محیط توسعه و اگر reCAPTCHA غیرفعال است
+  if (!isMounted || (process.env.NODE_ENV === 'development' && 
+      process.env.VERIFY_RECAPTCHA_IN_DEV === 'false')) {
+    return (
+      <div className="recaptcha-container">
+        <div className="recaptcha-card">
+          <div className="recaptcha-status">
+            <div className="recaptcha-status-icon success">
+              <Check className="w-5 h-5 text-green-500" />
+            </div>
+            <div className="recaptcha-status-content">
+              <div className="recaptcha-status-title">Security Check</div>
+              <div className="recaptcha-status-message">
+                reCAPTCHA verification is disabled in development
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Error state
   if (error) {
@@ -150,15 +207,17 @@ export default function GoogleReCaptcha({
           <button
             onClick={refreshRecaptcha}
             className="recaptcha-retry-btn"
+            disabled={isLoading}
           >
             <RefreshCw className="w-3 h-3" />
-            Try Again
+            {isLoading ? 'Retrying...' : 'Try Again'}
           </button>
         </div>
       </div>
     );
   }
 
+  // Main render
   return (
     <div className="recaptcha-container">
       <div className="recaptcha-header">
@@ -182,11 +241,11 @@ export default function GoogleReCaptcha({
           <button
             type="button"
             onClick={refreshRecaptcha}
-            disabled={!isLoaded || isLoading}
+            disabled={!isReady || isLoading}
             className="recaptcha-refresh-btn"
             aria-label="Refresh security check"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
@@ -200,11 +259,14 @@ export default function GoogleReCaptcha({
           </div>
           <div className="recaptcha-status-content">
             <div className="recaptcha-status-title">
-              {token ? 'Verification Complete' : 'Verifying Security'}
+              {token ? 'Verification Complete' : 
+               !isReady ? 'Loading Security...' : 'Verifying...'}
             </div>
             <div className="recaptcha-status-message">
               {token 
                 ? 'You have successfully passed the security check'
+                : !isReady
+                ? 'Loading reCAPTCHA security system...'
                 : 'Please wait while we verify you\'re human'
               }
             </div>
@@ -231,8 +293,10 @@ export default function GoogleReCaptcha({
         )}
 
         <div className="recaptcha-footer">
-          This invisible security check helps prevent spam and abuse. 
-          No interaction required.
+          {!isReady 
+            ? 'Loading reCAPTCHA security...'
+            : 'This invisible security check helps prevent spam and abuse.'
+          }
         </div>
       </div>
     </div>

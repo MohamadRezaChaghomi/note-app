@@ -96,6 +96,14 @@ export async function notesPOST(req, userId) {
         code: "VALIDATION_ERROR"
       }, { status: 400 });
     }
+
+    if (error.code === 11000) {
+      return Response.json({ 
+        ok: false, 
+        message: "Note with this title already exists",
+        code: "DUPLICATE_NOTE"
+      }, { status: 409 });
+    }
     
     return Response.json({ 
       ok: false, 

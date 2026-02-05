@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { Bell, Shield, Palette, User, Save, ArrowLeft } from "lucide-react";
+import { Bell, Shield, Palette, User, Save, ArrowLeft, Users, Lock } from "lucide-react";
 import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -94,7 +94,8 @@ export default function SettingsPage() {
     { id: "general", label: "General", icon: User },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "appearance", label: "Appearance", icon: Palette },
-    { id: "privacy", label: "Privacy", icon: Shield }
+    { id: "privacy", label: "Privacy", icon: Shield },
+    ...(session?.user?.role === "admin" ? [{ id: "admin", label: "Admin Panel", icon: Lock }] : [])
   ];
 
   const [activeSection, setActiveSection] = useState("general");
@@ -284,6 +285,42 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
+          </div>
+        );
+
+      case "admin":
+        return (
+          <div className="settings-section">
+            <div className="section-header">
+              <h2>Admin Panel</h2>
+              <p>Administrative controls and management</p>
+            </div>
+
+            <Card className="admin-quick-access">
+              <div className="admin-option">
+                <Users className="w-6 h-6 text-blue-500" />
+                <div className="admin-option-content">
+                  <h3>Manage Administrators</h3>
+                  <p>Add or remove admin privileges from users</p>
+                </div>
+                <Link href="/dashboard/settings/admin" className="admin-link-btn">
+                  Go to Admin Panel →
+                </Link>
+              </div>
+            </Card>
+
+            <Card className="admin-quick-access">
+              <div className="admin-option">
+                <Shield className="w-6 h-6 text-green-500" />
+                <div className="admin-option-content">
+                  <h3>View System Reports</h3>
+                  <p>Access detailed analytics and system statistics</p>
+                </div>
+                <Link href="/dashboard/report" className="admin-link-btn">
+                  View Reports →
+                </Link>
+              </div>
+            </Card>
           </div>
         );
 

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { 
   Save, X, AlertCircle, Folder, Palette, 
-  Clock, Tag, Star, Lock, Upload,
-  Loader2, Plus, Trash2
+  Clock, Tag, Star, Lock,
+  Loader2, Plus
 } from "lucide-react";
 import { toast } from "sonner";
 import "@/styles/new-note.css";
@@ -31,10 +31,8 @@ export default function NewNotePage() {
     tags: [],
     priority: "medium",
     dueDate: "",
-    reminderAt: "",
     isStarred: false,
-    isLocked: false,
-    coverImage: null
+    isLocked: false
   });
   const [errors, setErrors] = useState({});
   const [tagInput, setTagInput] = useState("");
@@ -43,7 +41,7 @@ export default function NewNotePage() {
     loadFolders();
   }, []);
 
-  const loadFolders = useCallback(async () => {
+  const loadFolders = async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/folders");
@@ -56,19 +54,18 @@ export default function NewNotePage() {
       setFolders(data.folders || []);
       
       // Set default folder if available
-      if (data.folders?.length > 0 && !formData.folderId) {
+      if (data.folders?.length > 0) {
         setFormData(prev => ({ ...prev, folderId: data.folders[0]._id }));
       }
     } catch (err) {
       console.error("Error loading folders:", err);
-      setErrors(prev => ({ ...prev, load: "Failed to load folders" }));
       toast.error("Failed to load folders");
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  const validateForm = useCallback(() => {
+  const validateForm = () => {
     const newErrors = {};
     
     if (!formData.title.trim()) {
@@ -86,9 +83,9 @@ export default function NewNotePage() {
     }
     
     return newErrors;
-  }, [formData]);
+  };
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async () => {
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -108,10 +105,9 @@ export default function NewNotePage() {
         tags: formData.tags,
         priority: formData.priority,
         dueDate: formData.dueDate || null,
-        reminderAt: formData.reminderAt || null,
         isStarred: formData.isStarred,
         isLocked: formData.isLocked,
-        pinned: false // New notes are not pinned by default
+        pinned: false
       };
 
       const res = await fetch("/api/notes", {
@@ -139,9 +135,9 @@ export default function NewNotePage() {
     } finally {
       setSaving(false);
     }
-  }, [formData, router, validateForm]);
+  };
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = () => {
     if (formData.title.trim() || formData.description.trim() || formData.content.trim()) {
       if (confirm("Are you sure you want to discard this note? All changes will be lost.")) {
         router.push("/dashboard/notes");
@@ -149,9 +145,9 @@ export default function NewNotePage() {
     } else {
       router.push("/dashboard/notes");
     }
-  }, [formData, router]);
+  };
 
-  const handleInputChange = useCallback((field, value) => {
+  const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear error for this field if it exists
@@ -162,9 +158,9 @@ export default function NewNotePage() {
         return newErrors;
       });
     }
-  }, [errors]);
+  };
 
-  const handleAddTag = useCallback(() => {
+  const handleAddTag = () => {
     const trimmedTag = tagInput.trim().toLowerCase();
     if (trimmedTag && !formData.tags.includes(trimmedTag)) {
       setFormData(prev => ({
@@ -173,14 +169,14 @@ export default function NewNotePage() {
       }));
       setTagInput("");
     }
-  }, [tagInput, formData.tags]);
+  };
 
-  const handleRemoveTag = useCallback((tagToRemove) => {
+  const handleRemoveTag = (tagToRemove) => {
     setFormData(prev => ({
       ...prev,
       tags: prev.tags.filter(tag => tag !== tagToRemove)
     }));
-  }, []);
+  };
 
   const colorOptions = [
     { value: "#3b82f6", label: "Blue", class: "bg-blue-500" },

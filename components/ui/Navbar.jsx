@@ -41,5 +41,5 @@ export default function Navbar({ onMenuClick, sidebarOpen }) {
         </a>
       </div>
     </div>
-  );
-}
+  )
+;}

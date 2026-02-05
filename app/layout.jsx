@@ -1,19 +1,31 @@
+// app/layout.jsx - نسخه اصلاح شده
 import "./globals.css";
-import { Inter } from "next/font/google";
 import Providers from "./providers";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
 
-const inter = Inter({
-  subsets: ["latin"],
+const inter = {
   variable: "--font-inter",
-  display: "swap",
-});
+};
 
 export const metadata = {
   title: "Web Notes",
   description: "A modern and secure online note-taking experience",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // دریافت session از سرور
+  const session = await getServerSession(authOptions);
+  
+  // Suppress logs in production
+  if (process.env.NODE_ENV === "development") {
+    console.log("📱 [RootLayout] Session from server:", {
+      hasSession: !!session,
+      userId: session?.user?.id,
+      email: session?.user?.email
+    });
+  }
+
   return (
     <html
       lang="en"
@@ -27,7 +39,7 @@ export default function RootLayout({ children }) {
       </head>
 
       <body className="font-sans antialiased theme-transition">
-        <Providers>
+        <Providers session={session}> {/* پاس دادن session */}
           {children}
         </Providers>
       </body>

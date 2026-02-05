@@ -205,7 +205,7 @@ NoteSchema.virtual('timeToRead').get(function() {
 });
 
 // Middleware
-NoteSchema.pre('save', function(next) {
+NoteSchema.pre('save', function() {
   // Auto-generate slug if not provided
   if (!this.slug && this.title) {
     this.slug = this.title
@@ -220,8 +220,6 @@ NoteSchema.pre('save', function(next) {
   if (this.isModified('content') || this.isModified('title')) {
     this.version += 1;
   }
-  
-  next();
 });
 
 NoteSchema.pre('find', function() {

@@ -1,3 +1,4 @@
+// app/dashboard/layout.jsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -12,12 +13,17 @@ import { Loader2 } from "lucide-react";
 import "@/styles/dashboard.css";
 import "@/styles/sidebar.css";
 import "@/styles/navbar.css";
+import "@/styles/layout-dashboard.css"; // اضافه کردن فایل استایل جدید
 
 export default function DashboardLayout({ children }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/login");
@@ -32,7 +38,7 @@ export default function DashboardLayout({ children }) {
     setSidebarOpen(false);
   };
 
-  if (status === "loading" || !session) {
+  if (!mounted) {
     return (
       <div className="loading-state">
         <Loader2 className="animate-spin" />
@@ -41,29 +47,36 @@ export default function DashboardLayout({ children }) {
     );
   }
 
+  if (status === "loading") {
+    return (
+      <div className="loading-state">
+        <Loader2 className="animate-spin" />
+        <span>Loading dashboard...</span>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return null;
+  }
+
   return (
     <div className="dashboard-layout">
-      {/* Navbar - حالت شیشه‌ای */}
-      <header className="layout-header">
-        <Navbar 
-          onMenuClick={toggleSidebar}
-          sidebarOpen={sidebarOpen}
-        />
-      </header>
-
-      <div className="layout-body">
-        {/* Sidebar - در سمت چپ */}
-        <aside className={`layout-sidebar ${sidebarOpen ? "open" : ""}`}>
+      <Navbar 
+        onMenuClick={toggleSidebar}
+        sidebarOpen={sidebarOpen}
+      />
+      
+      <div className="layout-container">
+        <aside className={`sidebar-container ${sidebarOpen ? "open" : ""}`}>
           <Sidebar onClose={closeSidebar} />
         </aside>
 
-        {/* Main Content */}
-        <main className="layout-main">
+        <main className="main-content">
           {children}
         </main>
       </div>
 
-      {/* Mobile Overlay - وقتی سایدبار بازه */}
       {sidebarOpen && (
         <div 
           className="mobile-overlay"

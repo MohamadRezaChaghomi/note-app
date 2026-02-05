@@ -122,6 +122,7 @@
 .quick-stats {
   display: flex;
   gap: 1rem;
+  padding: 0 !important;
 }
 
 .quick-stat {

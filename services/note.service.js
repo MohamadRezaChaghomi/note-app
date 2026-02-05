@@ -98,10 +98,16 @@ export async function listNotes(userId, query = {}) {
   }
   
   const [sortField, sortOrder] = sort.split('_');
-  sortOptions[sortField] = sortOrder === 'desc' ? -1 : 1;
+  
+  // Handle text search scoring for relevance
+  if (search && sortField === 'relevance') {
+    sortOptions.score = { $meta: 'textScore' };
+  } else if (sortField) {
+    sortOptions[sortField] = sortOrder === 'desc' ? -1 : 1;
+  }
   
   // If no specific sort, add default
-  if (!sortOptions.updatedAt) {
+  if (!sortOptions.updatedAt && sortField !== 'relevance') {
     sortOptions.updatedAt = -1;
   }
 
@@ -208,9 +214,25 @@ export async function createNote(userId, payload) {
     throw new Error("Folder not found or access denied");
   }
 
+  const title = payload.title?.trim() || "Untitled Note";
+  
+  // Generate unique slug
+  let slug = createSlug(title);
+  
+  // Ensure slug is not empty
+  if (!slug) {
+    slug = `note-${Date.now()}`;
+  } else {
+    // Check for duplicate slugs and append timestamp if needed
+    const existingSlug = await Note.findOne({ slug, userId });
+    if (existingSlug) {
+      slug = `${slug}-${Date.now()}`;
+    }
+  }
+
   const noteData = {
     userId,
-    title: payload.title?.trim() || "Untitled Note",
+    title,
     description: payload.description?.trim() || "",
     content: payload.content?.trim() || "",
     color: payload.color || "#3b82f6",
@@ -223,7 +245,8 @@ export async function createNote(userId, payload) {
     isStarred: payload.isStarred || false,
     isArchived: payload.isArchived || false,
     isLocked: payload.isLocked || false,
-    pinnedAt: payload.pinned ? new Date() : null
+    pinnedAt: payload.pinned ? new Date() : null,
+    slug
   };
 
   const note = await Note.create(noteData);
@@ -305,6 +328,21 @@ export async function updateNote(userId, id, patch) {
   // Handle pinned status
   if ('pinned' in patch) {
     updateData.pinnedAt = patch.pinned ? new Date() : null;
+  }
+
+  // Generate slug if title is being updated
+  if (updateData.title) {
+    let slug = createSlug(updateData.title);
+    if (!slug) {
+      slug = `note-${Date.now()}`;
+    } else {
+      // Check for duplicate slugs and append timestamp if needed
+      const existingSlug = await Note.findOne({ slug, userId, _id: { $ne: id } });
+      if (existingSlug) {
+        slug = `${slug}-${Date.now()}`;
+      }
+    }
+    updateData.slug = slug;
   }
 
   // Update note

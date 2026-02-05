@@ -49,18 +49,40 @@ export default function NoteEditor({ initial = {}, onSave, saving = false, readO
   }, [title, content, tags]);
 
   const handleAddTag = async () => {
-    const t = newTag.trim();
+    const t = newTag.trim().toLowerCase();
     if (!t) return;
-    if (!allTags.includes(t)) {
+    
+    // Check if tag name already exists
+    const existingTag = allTags.find(tag => {
+      const tagName = typeof tag === 'object' ? tag.name : tag;
+      return tagName.toLowerCase() === t;
+    });
+    
+    if (!existingTag) {
       try {
-        const res = await fetch('/api/tags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: t }) });
+        const res = await fetch('/api/tags', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ name: t })
+        });
         if (res.ok) {
           const data = await res.json();
-          setAllTags(prev => [...prev, data.tag.name]);
+          const tagName = data.tag.name;
+          setAllTags(prev => [...prev, tagName]);
+          if (!tags.includes(tagName)) {
+            setTags(prev => [...prev, tagName]);
+          }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Failed to create tag:', e);
+      }
+    } else {
+      // Tag already exists, just add it
+      const tagName = typeof existingTag === 'object' ? existingTag.name : existingTag;
+      if (!tags.includes(tagName)) {
+        setTags(prev => [...prev, tagName]);
+      }
     }
-    if (!tags.includes(t)) setTags(prev => [...prev, t]);
     setNewTag("");
   };
 

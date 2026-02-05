@@ -1,0 +1,327 @@
+/* new-tag-page.css - استایل‌های صفحه ایجاد تگ جدید */
+
+/* Main Container */
+.new-tag-page {
+  width: 100%;
+  min-height: 100vh;
+  background: var(--bg-primary);
+  padding: 2rem 0;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.new-tag-container {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Header */
+.new-tag-header {
+  margin-bottom: 2rem;
+}
+
+.new-tag-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.new-tag-subtitle {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+}
+
+/* Form Container */
+.new-tag-form-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  padding: 2rem;
+  box-shadow: var(--shadow-md);
+}
+
+.new-tag-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Form Error */
+.form-error {
+  background: var(--color-error-50);
+  border: 1px solid var(--color-error-200);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.dark .form-error {
+  background: var(--color-error-900);
+  border-color: var(--color-error-800);
+}
+
+.form-error-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--color-error-600);
+  flex-shrink: 0;
+}
+
+.form-error-text {
+  color: var(--color-error-700);
+  font-size: 0.875rem;
+}
+
+.dark .form-error-text {
+  color: var(--color-error-300);
+}
+
+/* Form Groups */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  font-size: 1rem;
+  font-family: var(--font-persian);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.dark .form-input:focus,
+.dark .form-textarea:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.form-input-error {
+  border-color: var(--color-error-500) !important;
+}
+
+.form-error-message {
+  font-size: 0.875rem;
+  color: var(--color-error-600);
+}
+
+.dark .form-error-message {
+  color: var(--color-error-400);
+}
+
+.form-char-count {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  text-align: right;
+}
+
+/* Color Picker */
+.color-picker-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.color-options {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.color-option {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-lg);
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.color-option:hover {
+  transform: scale(1.1);
+}
+
+.color-option-selected {
+  border-color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+/* Preview */
+.preview-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.preview-container {
+  padding: 1.5rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+}
+
+.preview-tag {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.preview-description {
+  margin-top: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Form Actions */
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.form-action-btn {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  font-size: 1rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.form-action-btn-cancel {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
+}
+
+.form-action-btn-cancel:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-strong);
+}
+
+.dark .form-action-btn-cancel {
+  background: var(--color-gray-800);
+  color: var(--color-gray-200);
+  border-color: var(--color-gray-700);
+}
+
+.dark .form-action-btn-cancel:hover {
+  background: var(--color-gray-700);
+  border-color: var(--color-gray-600);
+}
+
+.form-action-btn-submit {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.form-action-btn-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.form-action-btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.form-action-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.form-action-loading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  animation: var(--animate-spin);
+}
+
+/* Loading State */
+.new-tag-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.new-tag-spinner {
+  width: 2rem;
+  height: 2rem;
+  color: var(--color-primary-600);
+  animation: var(--animate-spin);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .new-tag-container {
+    padding: 0 1rem;
+  }
+  
+  .new-tag-title {
+    font-size: 2rem;
+  }
+  
+  .new-tag-form-container {
+    padding: 1.5rem;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.new-tag-page {
+  animation: var(--animate-fade-in);
+}

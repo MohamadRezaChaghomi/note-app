@@ -29,12 +29,15 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  if (status === "authenticated") {
-    router.push("/dashboard");
-    return null;
-  }
+  // اگر authenticated ہے تو dashboard میں جائیں
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/dashboard");
+    }
+  }, [status, router]);
 
-  if (!mounted) {
+  // اگر mounted نہیں یا authenticated ہے تو loading دکھائیں
+  if (!mounted || status === "authenticated") {
     return <div className="home-loader">Loading...</div>;
   }
 
