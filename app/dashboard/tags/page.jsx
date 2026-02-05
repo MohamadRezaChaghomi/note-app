@@ -18,7 +18,18 @@ import {
   List,
 } from "lucide-react";
 import { toast } from "sonner";
+import DeleteModal from "@/components/ui/DeleteModal";
 import "@/styles/tags-page.css";
+
+// Helper function to adjust color brightness
+function adjustColorBrightness(color, percent) {
+  const num = parseInt(color.replace("#", ""), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+  const G = Math.max(0, Math.min(255, (num >> 8 & 0x00FF) + amt));
+  const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+  return "#" + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+}
 
 export default function TagsPage() {
   const router = useRouter();
@@ -32,6 +43,12 @@ export default function TagsPage() {
   const [stats, setStats] = useState(null);
   const [sortBy, setSortBy] = useState("name_asc");
   const [pagination, setPagination] = useState(null);
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    tagId: null,
+    tagName: "",
+    isLoading: false,
+  });
 
   const loadTags = useCallback(async (page = 1) => {
     try {
@@ -85,11 +102,20 @@ export default function TagsPage() {
     loadStats();
   }, [loadTags, loadStats]);
 
-  const handleDeleteTag = async (tagId) => {
-    if (!confirm("Are you sure you want to delete this tag?")) return;
+  const handleDeleteTag = (tagId) => {
+    const tag = tags.find(t => t._id === tagId);
+    setDeleteModal({
+      isOpen: true,
+      tagId,
+      tagName: tag?.name || "Untitled",
+      isLoading: false,
+    });
+  };
 
+  const handleConfirmDelete = async () => {
+    setDeleteModal(prev => ({ ...prev, isLoading: true }));
     try {
-      const res = await fetch(`/api/tags/${tagId}`, {
+      const res = await fetch(`/api/tags/${deleteModal.tagId}`, {
         method: "DELETE",
       });
 
@@ -100,10 +126,26 @@ export default function TagsPage() {
       }
 
       toast.success("Tag deleted successfully");
+      setDeleteModal({
+        isOpen: false,
+        tagId: null,
+        tagName: "",
+        isLoading: false,
+      });
       refreshAll();
     } catch (error) {
       toast.error(error.message || "Failed to delete tag");
+      setDeleteModal(prev => ({ ...prev, isLoading: false }));
     }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteModal({
+      isOpen: false,
+      tagId: null,
+      tagName: "",
+      isLoading: false,
+    });
   };
 
   const handleBulkDelete = async () => {
@@ -359,12 +401,19 @@ export default function TagsPage() {
                     <div
                       key={tag._id || `tag-${index}`}
                       className={`tag-card ${selectedTags.includes(tag._id) ? "selected" : ""}`}
+                      style={{
+                        '--tag-color': tag.color,
+                        '--tag-color-start': tag.color,
+                        '--tag-color-end': adjustColorBrightness(tag.color, -40),
+                      }}
+                      onClick={() => !bulkMode && router.push(`/dashboard/tags/${tag._id}`)}
                     >
                       {bulkMode && (
                         <input
                           type="checkbox"
                           checked={selectedTags.includes(tag._id)}
                           onChange={(e) => {
+                            e.stopPropagation();
                             setSelectedTags((prev) =>
                               prev.includes(tag._id)
                                 ? prev.filter((id) => id !== tag._id)
@@ -394,21 +443,30 @@ export default function TagsPage() {
 
                       <div className="tag-actions">
                         <button
-                          onClick={() => handleToggleFavorite(tag._id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleFavorite(tag._id);
+                          }}
                           className={`tag-action-btn ${tag.isFavorite ? "active" : ""}`}
                           title={tag.isFavorite ? "Remove from favorites" : "Add to favorites"}
                         >
                           <Star className="tag-action-icon" />
                         </button>
                         <button
-                          onClick={() => router.push(`/dashboard/tags/${tag._id}/edit`)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/dashboard/tags/${tag._id}/edit`);
+                          }}
                           className="tag-action-btn"
                           title="Edit tag"
                         >
                           <Edit className="tag-action-icon" />
                         </button>
                         <button
-                          onClick={() => handleDeleteTag(tag._id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteTag(tag._id);
+                          }}
                           className="tag-action-btn danger"
                           title="Delete tag"
                         >
@@ -426,12 +484,19 @@ export default function TagsPage() {
                     <div
                       key={tag._id || `tag-list-${index}`}
                       className={`tag-list-item ${selectedTags.includes(tag._id) ? "selected" : ""}`}
+                      style={{
+                        '--tag-color': tag.color,
+                        '--tag-color-start': tag.color,
+                        '--tag-color-end': adjustColorBrightness(tag.color, -40),
+                      }}
+                      onClick={() => !bulkMode && router.push(`/dashboard/tags/${tag._id}`)}
                     >
                       {bulkMode && (
                         <input
                           type="checkbox"
                           checked={selectedTags.includes(tag._id)}
                           onChange={(e) => {
+                            e.stopPropagation();
                             setSelectedTags((prev) =>
                               prev.includes(tag._id)
                                 ? prev.filter((id) => id !== tag._id)
@@ -462,19 +527,28 @@ export default function TagsPage() {
 
                       <div className="tag-list-actions">
                         <button
-                          onClick={() => handleToggleFavorite(tag._id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleFavorite(tag._id);
+                          }}
                           className={`tag-list-action-btn ${tag.isFavorite ? "active" : ""}`}
                         >
                           <Star className="tag-list-action-icon" />
                         </button>
                         <button
-                          onClick={() => router.push(`/dashboard/tags/${tag._id}/edit`)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/dashboard/tags/${tag._id}/edit`);
+                          }}
                           className="tag-list-action-btn"
                         >
                           <Edit className="tag-list-action-icon" />
                         </button>
                         <button
-                          onClick={() => handleDeleteTag(tag._id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteTag(tag._id);
+                          }}
                           className="tag-list-action-btn danger"
                         >
                           <Trash2 className="tag-list-action-icon" />
@@ -488,6 +562,17 @@ export default function TagsPage() {
           )}
         </div>
       </div>
+
+      {/* Delete Modal */}
+      <DeleteModal
+        isOpen={deleteModal.isOpen}
+        title="Delete Tag"
+        description="Are you sure you want to delete this tag? This action cannot be undone."
+        itemName={deleteModal.tagName}
+        isLoading={deleteModal.isLoading}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
     </div>
   );
 }

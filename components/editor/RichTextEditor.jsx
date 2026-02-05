@@ -6,7 +6,7 @@ import {
   Heading, Quote, Code, Link, Image, 
   Save, Type, AlignLeft, AlignCenter, AlignRight
 } from "lucide-react";
-import "@styles/components/notes/rich-text-editor.module.css";
+import styles from "@styles/components/notes/rich-text-editor.module.css";
 
 export default function RichTextEditor({ value, onChange, readOnly = false, placeholder = "" }) {
   const editorRef = useRef(null);
@@ -61,14 +61,14 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
   };
 
   return (
-    <div className="rich-text-editor">
+    <div className={styles["rich-text-editor"]}>
       {!readOnly && (
-        <div className="toolbar">
-          <div className="toolbar-group">
+        <div className={styles.toolbar}>
+          <div className={styles["toolbar-group"]}>
             <button 
               type="button" 
               onClick={() => formatText('bold')}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Bold"
             >
               <Bold className="w-4 h-4" />
@@ -76,7 +76,7 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
             <button 
               type="button" 
               onClick={() => formatText('italic')}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Italic"
             >
               <Italic className="w-4 h-4" />
@@ -84,18 +84,18 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
             <button 
               type="button" 
               onClick={() => formatText('underline')}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Underline"
             >
               <Underline className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="toolbar-group">
+          <div className={styles["toolbar-group"]}>
             <button 
               type="button" 
               onClick={() => toggleHeading(1)}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Heading 1"
             >
               <Heading className="w-4 h-4" />
@@ -104,7 +104,7 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
             <button 
               type="button" 
               onClick={() => toggleHeading(2)}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Heading 2"
             >
               <Heading className="w-4 h-4" />
@@ -113,7 +113,7 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
             <button 
               type="button" 
               onClick={() => toggleHeading(3)}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Heading 3"
             >
               <Heading className="w-4 h-4" />
@@ -121,11 +121,11 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
             </button>
           </div>
 
-          <div className="toolbar-group">
+          <div className={styles["toolbar-group"]}>
             <button 
               type="button" 
               onClick={() => formatText('insertUnorderedList')}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Bullet List"
             >
               <List className="w-4 h-4" />
@@ -133,7 +133,7 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
             <button 
               type="button" 
               onClick={() => formatText('insertOrderedList')}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Numbered List"
             >
               <ListOrdered className="w-4 h-4" />
@@ -141,7 +141,7 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
             <button 
               type="button" 
               onClick={() => formatText('formatBlock', '<blockquote>')}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Quote"
             >
               <Quote className="w-4 h-4" />
@@ -149,18 +149,18 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
             <button 
               type="button" 
               onClick={() => formatText('formatBlock', '<pre>')}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Code Block"
             >
               <Code className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="toolbar-group">
+          <div className={styles["toolbar-group"]}>
             <button 
               type="button" 
               onClick={insertLink}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Insert Link"
             >
               <Link className="w-4 h-4" />
@@ -168,18 +168,18 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
             <button 
               type="button" 
               onClick={insertImage}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Insert Image"
             >
               <Image className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="toolbar-group">
+          <div className={styles["toolbar-group"]}>
             <button 
               type="button" 
               onClick={() => formatText('justifyLeft')}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Align Left"
             >
               <AlignLeft className="w-4 h-4" />
@@ -187,7 +187,7 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
             <button 
               type="button" 
               onClick={() => formatText('justifyCenter')}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Align Center"
             >
               <AlignCenter className="w-4 h-4" />
@@ -195,18 +195,18 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
             <button 
               type="button" 
               onClick={() => formatText('justifyRight')}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Align Right"
             >
               <AlignRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="toolbar-group ml-auto">
+          <div className={`${styles["toolbar-group"]} ml-auto`}>
             <button 
               type="button" 
               onClick={clearFormatting}
-              className="toolbar-btn"
+              className={styles["toolbar-btn"]}
               title="Clear Formatting"
             >
               <Type className="w-4 h-4" />
@@ -217,7 +217,7 @@ export default function RichTextEditor({ value, onChange, readOnly = false, plac
 
       <div
         ref={editorRef}
-        className={`editor-content ${isFocused ? 'focused' : ''} ${readOnly ? 'read-only' : ''}`}
+        className={`${styles["editor-content"]} ${isFocused ? styles.focused : ''} ${readOnly ? styles["read-only"] : ''}`}
         contentEditable={!readOnly}
         onInput={handleInput}
         onFocus={() => setIsFocused(true)}

@@ -1,6 +1,4 @@
-/* note-card.module.css - Professional Card Design */
-
-.note-card {
+.folder-card {
   position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border-color, #e5e7eb);
@@ -14,12 +12,12 @@
   flex-direction: column;
 }
 
-.dark .note-card {
+.dark .folder-card {
   border-color: #374151;
 }
 
 /* Professional gradient border based on color */
-.note-card::before {
+.folder-card::before {
   content: '';
   position: absolute;
   top: 0;
@@ -32,27 +30,35 @@
   z-index: 1;
 }
 
-.note-card:hover {
+/* Top accent bar with color */
+.folder-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--card-color, #3b82f6);
+}
+
+.folder-card:hover {
   border-color: var(--color-primary-300);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
-.dark .note-card:hover {
+.dark .folder-card:hover {
   border-color: var(--color-primary-500);
 }
 
-.note-card.selected {
+.folder-card.selected {
   border-color: var(--color-primary-500);
   background: rgba(59, 130, 246, 0.05);
 }
 
-.note-card.archived {
-  opacity: 0.6;
-}
-
 /* Checkbox */
-.note-checkbox {
+.folder-checkbox {
   position: absolute;
   top: 1rem;
   right: 1rem;
@@ -62,7 +68,7 @@
 }
 
 /* Color Indicator */
-.note-color-indicator {
+.folder-color-indicator {
   width: 2rem;
   height: 2rem;
   border-radius: var(--radius-lg);
@@ -72,17 +78,17 @@
   opacity: 0.7;
 }
 
-.note-card:hover .note-color-indicator {
+.folder-card:hover .folder-color-indicator {
   transform: scale(1.1);
   opacity: 1;
 }
 
-.dark .note-color-indicator {
+.dark .folder-color-indicator {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 /* Title */
-.note-title {
+.folder-title {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -96,7 +102,7 @@
 }
 
 /* Description */
-.note-description {
+.folder-description {
   font-size: 0.875rem;
   color: var(--text-secondary);
   line-height: 1.5;
@@ -109,17 +115,15 @@
 }
 
 /* Meta Info */
-.note-meta {
+.folder-meta {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  font-size: 0.875rem;
-  color: var(--text-tertiary);
   flex-grow: 1;
 }
 
-.note-folder {
+.folder-usage {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -127,26 +131,18 @@
   background: var(--bg-tertiary);
   border-radius: var(--radius-full);
   width: fit-content;
-}
-
-.note-date {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.75rem;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-full);
-  width: fit-content;
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
 }
 
 /* Actions */
-.note-actions {
+.folder-actions {
   display: flex;
   gap: 0.5rem;
   margin-top: auto;
 }
 
-.note-action-btn {
+.folder-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -161,30 +157,18 @@
   flex-shrink: 0;
 }
 
-.note-action-btn:hover {
+.folder-action-btn:hover {
   background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
-.note-action-btn.active {
-  background: var(--color-primary-100);
-  color: var(--color-primary-600);
-  border-color: var(--color-primary-200);
-}
-
-.dark .note-action-btn.active {
-  background: var(--color-primary-900);
-  color: var(--color-primary-300);
-  border-color: var(--color-primary-700);
-}
-
-.note-action-btn.danger:hover {
+.folder-action-btn.danger:hover {
   background: var(--color-error-100);
   color: var(--color-error-600);
   border-color: var(--color-error-200);
 }
 
-.dark .note-action-btn.danger:hover {
+.dark .folder-action-btn.danger:hover {
   background: var(--color-error-900);
   color: var(--color-error-300);
   border-color: var(--color-error-700);
@@ -192,58 +176,58 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .note-card {
+  .folder-card {
     padding: 1.25rem;
     min-height: 180px;
   }
 
-  .note-title {
+  .folder-title {
     font-size: 1.125rem;
   }
 
-  .note-color-indicator {
+  .folder-color-indicator {
     width: 1.5rem;
     height: 1.5rem;
   }
 }
 
 @media (max-width: 640px) {
-  .note-card {
+  .folder-card {
     padding: 1rem;
     min-height: 160px;
   }
 
-  .note-title {
+  .folder-title {
     font-size: 1rem;
   }
 
-  .note-description {
+  .folder-description {
     font-size: 0.8125rem;
   }
 
-  .note-color-indicator {
+  .folder-color-indicator {
     width: 1.25rem;
     height: 1.25rem;
     margin-bottom: 0.5rem;
   }
 
-  .note-meta {
+  .folder-meta {
     gap: 0.25rem;
     margin-bottom: 0.75rem;
   }
 
-  .note-actions {
+  .folder-actions {
     gap: 0.25rem;
   }
 
-  .note-action-btn {
+  .folder-action-btn {
     width: 1.75rem;
     height: 1.75rem;
   }
 }
 
 /* Title */
-.note-title {
+.folder-title {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -256,7 +240,7 @@
 }
 
 /* Description */
-.note-description {
+.folder-description {
   font-size: 0.875rem;
   color: var(--text-secondary);
   line-height: 1.5;
@@ -268,17 +252,15 @@
 }
 
 /* Meta Info */
-.note-meta {
+.folder-meta {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  font-size: 0.875rem;
-  color: var(--text-tertiary);
   flex-grow: 1;
 }
 
-.note-folder {
+.folder-usage {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -286,26 +268,18 @@
   background: var(--bg-tertiary);
   border-radius: var(--radius-full);
   width: fit-content;
-}
-
-.note-date {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.75rem;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-full);
-  width: fit-content;
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
 }
 
 /* Actions */
-.note-actions {
+.folder-actions {
   display: flex;
   gap: 0.5rem;
   margin-top: auto;
 }
 
-.note-action-btn {
+.folder-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -320,30 +294,18 @@
   flex-shrink: 0;
 }
 
-.note-action-btn:hover {
+.folder-action-btn:hover {
   background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
-.note-action-btn.active {
-  background: var(--color-primary-100);
-  color: var(--color-primary-600);
-  border-color: var(--color-primary-200);
-}
-
-.dark .note-action-btn.active {
-  background: var(--color-primary-900);
-  color: var(--color-primary-300);
-  border-color: var(--color-primary-700);
-}
-
-.note-action-btn.danger:hover {
+.folder-action-btn.danger:hover {
   background: var(--color-error-100);
   color: var(--color-error-600);
   border-color: var(--color-error-200);
 }
 
-.dark .note-action-btn.danger:hover {
+.dark .folder-action-btn.danger:hover {
   background: var(--color-error-900);
   color: var(--color-error-300);
   border-color: var(--color-error-700);
@@ -351,51 +313,51 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .note-card {
+  .folder-card {
     padding: 1.25rem;
     min-height: 180px;
   }
 
-  .note-title {
+  .folder-title {
     font-size: 1.125rem;
   }
 
-  .note-color-indicator {
+  .folder-color-indicator {
     width: 2.5rem;
     height: 2.5rem;
   }
 }
 
 @media (max-width: 640px) {
-  .note-card {
+  .folder-card {
     padding: 1rem;
     min-height: 160px;
   }
 
-  .note-title {
+  .folder-title {
     font-size: 1rem;
   }
 
-  .note-description {
+  .folder-description {
     font-size: 0.8125rem;
   }
 
-  .note-color-indicator {
+  .folder-color-indicator {
     width: 2rem;
     height: 2rem;
     margin-bottom: 0.75rem;
   }
 
-  .note-meta {
+  .folder-meta {
     gap: 0.25rem;
     margin-bottom: 0.75rem;
   }
 
-  .note-actions {
+  .folder-actions {
     gap: 0.25rem;
   }
 
-  .note-action-btn {
+  .folder-action-btn {
     width: 1.75rem;
     height: 1.75rem;
   }

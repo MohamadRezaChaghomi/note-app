@@ -9,7 +9,7 @@ import Button from "@/components/ui/Button";
 import "@/styles/settings.css";
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const [settings, setSettings] = useState({
     notifications: {
       emailNotifications: true,
@@ -75,9 +75,15 @@ export default function SettingsPage() {
 
       const json = await res.json();
       if (res.ok && json.ok) {
-        setNameMessage({ ok: true, text: 'Name updated' });
-        // small refresh to update session display in UI
-        setTimeout(() => window.location.reload(), 600);
+        setNameMessage({ ok: true, text: 'Name updated successfully' });
+        // Update the NextAuth session with new name
+        await updateSession({
+          ...session,
+          user: {
+            ...session?.user,
+            name: name.trim()
+          }
+        });
       } else {
         setNameMessage({ ok: false, text: json?.error || 'Update failed' });
       }
@@ -88,7 +94,7 @@ export default function SettingsPage() {
       setSavingName(false);
       setTimeout(() => setNameMessage(null), 3000);
     }
-  }, [name]);
+  }, [name, session, updateSession]);
 
   const navItems = [
     { id: "general", label: "General", icon: User },

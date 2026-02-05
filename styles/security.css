@@ -457,6 +457,74 @@
   transform: translateX(22px);
 }
 
+/* Success Message */
+
+.security-success-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 6px;
+  color: #22c55e;
+}
+
+.security-success-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.security-success-content {
+  flex: 1;
+}
+
+.security-success-title {
+  margin: 0;
+  font-weight: 600;
+  color: #22c55e;
+  font-size: 0.95rem;
+}
+
+.security-success-subtitle {
+  margin: 0.5rem 0 0 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* Helper Text */
+
+.security-helper-text {
+  margin: 0.5rem 0 0 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.security-disabled-input {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--bg-primary);
+}
+
+.security-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.security-btn-loader {
+  animation: spin 1s linear infinite;
+}
+
 /* Responsive */
 
 @media (max-width: 768px) {

@@ -2,14 +2,14 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Save, X, AlertCircle, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Save, X, AlertCircle, Loader2, ArrowLeft, Tag as TagIcon } from "lucide-react";
 import { toast } from "sonner";
-import "@/styles/edit-tag-page.css";
+import "@styles/edit-tag-page.css";
 
 export default function EditTagPage() {
   const router = useRouter();
-  const params = useParams();
-  const id = React.use(params)?.id;
+  const { id } = useParams();
 
   const [tag, setTag] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,7 +22,7 @@ export default function EditTagPage() {
   });
 
   const fetchTag = useCallback(async () => {
-    if (!id) return;
+    if (!id || id === 'undefined' || typeof id !== 'string') return;
 
     try {
       setLoading(true);
@@ -139,14 +139,21 @@ export default function EditTagPage() {
   }
 
   return (
-    <div className="edit-tag-page">
+    <div className="edit-tag-page theme-transition">
       <div className="edit-tag-container">
+        {/* Back Button */}
+        <Link href={`/dashboard/tags/${id}`} className="back-link">
+          <ArrowLeft className="back-link-icon" />
+          Back to Tag
+        </Link>
+
         {/* Header */}
         <div className="edit-tag-header">
-          <h1 className="edit-tag-title">Edit Tag</h1>
-          <p className="edit-tag-subtitle">
-            Update the tag details
-          </p>
+          <div className="header-icon-container">
+            <TagIcon className="header-icon" />
+          </div>
+          <h1 className="header-title">Edit Tag</h1>
+          <p className="header-subtitle">Update the tag details</p>
         </div>
 
         {/* Form */}

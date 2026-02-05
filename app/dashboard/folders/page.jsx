@@ -3,83 +3,174 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Folder,
-  FolderPlus,
+  Plus,
   Search,
+  X,
   Loader2,
+  RefreshCw,
+  Folder,
   FileText,
-  MoreVertical,
 } from "lucide-react";
 import { toast } from "sonner";
-import Link from "next/link";
-import "@styles/FoldersPage.css";
+import FolderCard from "@/components/folders/FolderCard";
+import DeleteModal from "@/components/ui/DeleteModal";
+import "@styles/folders-page.css";
 
 export default function FoldersPage() {
   const router = useRouter();
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [stats, setStats] = useState({
+    total: 0,
+  });
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    folderId: null,
+    folderName: "",
+    isLoading: false,
+  });
 
   const loadFolders = useCallback(async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (searchQuery) params.set("search", searchQuery);
+      const params = new URLSearchParams({
+        page: "1",
+        limit: "50",
+        ...(searchQuery && { search: searchQuery }),
+      });
 
       const res = await fetch(`/api/folders?${params}`);
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to load folders");
+      }
+
       setFolders(data.folders || []);
+      setStats({
+        total: data.folders?.length || 0,
+      });
     } catch (error) {
+      console.error("Load folders error:", error);
       toast.error(error.message || "Failed to load folders");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [searchQuery]);
 
+  const refreshAll = useCallback(() => {
+    setRefreshing(true);
+    loadFolders();
+  }, [loadFolders]);
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      loadFolders();
-    }, 300);
+    loadFolders();
+  }, [loadFolders]);
 
-    return () => clearTimeout(timer);
-  }, [searchQuery, loadFolders]);
+  const handleDeleteFolder = (folderId) => {
+    const folder = folders.find(f => f._id === folderId);
+    setDeleteModal({
+      isOpen: true,
+      folderId,
+      folderName: folder?.title || "Untitled",
+      isLoading: false,
+    });
+  };
 
-  const handleDelete = async (folderId) => {
-    if (!confirm("Are you sure you want to delete this folder?")) return;
-
+  const handleConfirmDelete = async () => {
+    setDeleteModal(prev => ({ ...prev, isLoading: true }));
     try {
-      const res = await fetch(`/api/folders/${folderId}`, {
+      const res = await fetch(`/api/folders/${deleteModal.folderId}`, {
         method: "DELETE",
       });
+
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.message);
-      toast.success("Folder deleted");
-      loadFolders();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to delete folder");
+      }
+
+      toast.success("Folder deleted successfully");
+      setDeleteModal({
+        isOpen: false,
+        folderId: null,
+        folderName: "",
+        isLoading: false,
+      });
+      refreshAll();
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.message || "Failed to delete folder");
+      setDeleteModal(prev => ({ ...prev, isLoading: false }));
     }
   };
 
+  const handleCancelDelete = () => {
+    setDeleteModal({
+      isOpen: false,
+      folderId: null,
+      folderName: "",
+      isLoading: false,
+    });
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <div className="folders-page">
+        <div className="folders-page-container">
+          <div className="folders-loading-fullscreen">
+            <div className="folders-loader-container">
+              <Loader2 className="folders-loader-spinner animate-spin" />
+              <p className="folders-loading-text">Loading folders...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="folders-page theme-transition">
-      <div className="container">
+    <div className="folders-page">
+      <div className="folders-page-container">
+        {/* Header */}
         <div className="folders-header">
           <div className="folders-header-content">
-            <div className="folders-title-section">
-              <h1>Folders</h1>
-              <p>Organize your notes into folders</p>
+            <div className="folders-header-left">
+              <div className="folders-page-title">
+                <h1>Folders</h1>
+                <p className="folders-subtitle">
+                  {folders.length} folder{folders.length !== 1 ? "s" : ""}
+                </p>
+              </div>
             </div>
-            <Link href="/dashboard/folders/new" className="folders-new-btn">
-              <FolderPlus className="folder-card-icon" />
-              New Folder
-            </Link>
+
+            <div className="folders-header-right">
+              {/* Refresh Button */}
+              <button
+                onClick={refreshAll}
+                disabled={refreshing}
+                className="folders-refresh-btn"
+                title="Refresh"
+              >
+                <RefreshCw className={`folders-refresh-icon ${refreshing ? "animate-spin" : ""}`} />
+              </button>
+
+              {/* New Folder Button */}
+              <button
+                onClick={() => router.push("/dashboard/folders/new")}
+                className="new-folder-btn"
+              >
+                <Plus className="new-folder-icon" />
+                New Folder
+              </button>
+            </div>
           </div>
 
+          {/* Search Bar */}
           <div className="folders-search-container">
-            <div className="folders-search-box">
+            <div className="folders-search-wrapper">
               <Search className="folders-search-icon" />
               <input
                 type="text"
@@ -88,68 +179,70 @@ export default function FoldersPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="folders-search-input"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="folders-clear-search-btn"
+                >
+                  <X className="folders-clear-search-icon" />
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {loading ? (
-          <div className="folders-loading">
-            <Loader2 className="folders-loading-spinner" />
+        {/* Empty State */}
+        {!loading && folders.length === 0 && (
+          <div className="folders-empty-state">
+            <div className="folders-empty-icon">
+              <Folder size={48} />
+            </div>
+            <h3 className="folders-empty-title">No folders yet</h3>
+            <p className="folders-empty-description">
+              {searchQuery
+                ? "Try a different search term"
+                : "Create your first folder to organize your notes"}
+            </p>
+            {!searchQuery && (
+              <button
+                onClick={() => router.push("/dashboard/folders/new")}
+                className="folders-empty-action-btn"
+              >
+                <Plus size={18} />
+                Create Folder
+              </button>
+            )}
           </div>
-        ) : folders.length === 0 ? (
-          <div className="folders-empty">
-            <Folder className="folders-empty-icon" />
-            <h3>No folders yet</h3>
-            <p>Create your first folder to organize your notes</p>
-            <Link href="/dashboard/folders/new" className="folders-new-btn">
-              <FolderPlus className="folder-card-icon" />
-              Create Your First Folder
-            </Link>
-          </div>
-        ) : (
-          <div className="folders-grid">
-            {folders.map((folder) => (
-              <div key={folder._id} className="folder-card">
-                <div className="folder-card-content">
-                  <div className="folder-card-header">
-                    <div
-                      className="folder-card-icon-container"
-                      style={{ backgroundColor: folder.color }}
-                    >
-                      <Folder className="folder-card-icon" />
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(folder._id);
-                      }}
-                      className="folder-card-menu-btn"
-                    >
-                      <MoreVertical className="folder-card-icon" />
-                    </button>
-                  </div>
-                  <h3 className="folder-card-title">{folder.title}</h3>
-                  {folder.description && (
-                    <p className="folder-card-description">{folder.description}</p>
-                  )}
-                  <div className="folder-card-info">
-                    <FileText className="folder-card-info-icon" />
-                    {folder.noteCount} notes
-                  </div>
-                </div>
-                <div className="folder-card-footer">
-                  <button
-                    onClick={() => router.push(`/dashboard/folders/${folder._id}`)}
-                    className="folder-card-view-btn"
-                  >
-                    View Folder
-                  </button>
-                </div>
-              </div>
-            ))}
+        )}
+
+        {/* Folders Display */}
+        {!loading && folders.length > 0 && (
+          <div className="folders-display">
+            <div className="folders-grid">
+              {folders.map((folder) => (
+                <FolderCard
+                  key={folder._id}
+                  folder={folder}
+                  onView={() => router.push(`/dashboard/folders/${folder._id}`)}
+                  onEdit={() => router.push(`/dashboard/folders/${folder._id}/edit`)}
+                  onDelete={() => handleDeleteFolder(folder._id)}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
+
+      {/* Delete Modal */}
+      <DeleteModal
+        isOpen={deleteModal.isOpen}
+        title="Delete Folder"
+        description="Are you sure you want to delete this folder? This action cannot be undone."
+        itemName={deleteModal.folderName}
+        isLoading={deleteModal.isLoading}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
     </div>
   );
 }

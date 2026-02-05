@@ -16,15 +16,6 @@ export const metadata = {
 export default async function RootLayout({ children }) {
   // دریافت session از سرور
   const session = await getServerSession(authOptions);
-  
-  // Suppress logs in production
-  if (process.env.NODE_ENV === "development") {
-    console.log("📱 [RootLayout] Session from server:", {
-      hasSession: !!session,
-      userId: session?.user?.id,
-      email: session?.user?.email
-    });
-  }
 
   return (
     <html

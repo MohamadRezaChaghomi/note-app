@@ -6,7 +6,7 @@ import {
   Eye, Check, X, Calendar, FileText 
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import "@styles/components/notes/version-history.module.css"
+import styles from "@styles/components/notes/version-history.module.css"
 
 export default function VersionHistory({ noteId, onClose, onRestoreVersion }) {
   const [versions, setVersions] = useState([]);

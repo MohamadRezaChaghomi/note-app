@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Save, X, AlertCircle } from "lucide-react";
+import { Save, X, AlertCircle, ArrowLeft, Tag as TagIcon } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import "@/styles/new-tag-page.css";
 
@@ -94,14 +95,21 @@ export default function NewTagPage() {
   ];
 
   return (
-    <div className="new-tag-page">
+    <div className="new-tag-page theme-transition">
       <div className="new-tag-container">
+        {/* Back Button */}
+        <Link href="/dashboard/tags" className="back-link">
+          <ArrowLeft className="back-link-icon" />
+          Back to Tags
+        </Link>
+
         {/* Header */}
         <div className="new-tag-header">
-          <h1 className="new-tag-title">Create New Tag</h1>
-          <p className="new-tag-subtitle">
-            Create a new tag to organize your notes
-          </p>
+          <div className="header-icon-container">
+            <TagIcon className="header-icon" />
+          </div>
+          <h1 className="header-title">Create New Tag</h1>
+          <p className="header-subtitle">Create a new tag to organize your notes</p>
         </div>
 
         {/* Form */}

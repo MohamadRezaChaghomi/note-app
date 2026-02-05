@@ -292,9 +292,7 @@ export async function buildReport(range = '14days') {
     };
 
   } catch (error) {
-    console.error('Report service error:', error);
-    
-    // Return empty but valid structure
+    // Report generation error - return empty but valid structure
     return {
       systemSummary: {
         totalUsers: 0,

@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { 
   Save, X, AlertCircle, Folder, Palette, 
   Clock, Tag, Star, Lock,
-  Loader2, Plus
+  Loader2, Plus, ArrowLeft
 } from "lucide-react";
 import { toast } from "sonner";
 import "@/styles/new-note.css";
@@ -210,6 +211,12 @@ export default function NewNotePage() {
 
   return (
     <div className="new-note-container">
+      {/* Back Button */}
+      <Link href="/dashboard/notes" className="back-link">
+        <ArrowLeft className="back-link-icon" />
+        Back to Notes
+      </Link>
+
       {/* Header */}
       <div className="new-note-header">
         <div className="new-note-header-content">

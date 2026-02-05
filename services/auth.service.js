@@ -53,12 +53,11 @@ class AuthService {
       try {
         await sendWelcomeEmail(email, name);
       } catch (emailError) {
-        console.warn("Welcome email failed:", emailError);
+        // Welcome email failed - continue with registration
       }
       
       return userObj;
     } catch (error) {
-      console.error("Registration error:", error);
       throw error;
     }
   }
@@ -113,8 +112,6 @@ class AuthService {
 
       return { sent: true, email };
     } catch (error) {
-      console.error("Send reset code error:", error);
-      
       if (error.message === "OAUTH_USER_NO_PASSWORD") {
         throw new Error("OAUTH_USER_NO_PASSWORD");
       }
@@ -167,7 +164,6 @@ class AuthService {
         resetCodeId: resetCodeDoc._id
       };
     } catch (error) {
-      console.error("Verify reset code error:", error);
       throw error;
     }
   }
@@ -213,7 +209,6 @@ class AuthService {
 
       return { success: true };
     } catch (error) {
-      console.error("Reset password error:", error);
       throw error;
     }
   }
@@ -253,7 +248,7 @@ class AuthService {
             location: "Unknown"
           });
         } catch (emailError) {
-          console.warn("Security alert failed:", emailError);
+          // Security alert failed - continue with login
         }
       } else {
         // Create new user
@@ -276,13 +271,12 @@ class AuthService {
         try {
           await sendWelcomeEmail(email, user.name);
         } catch (emailError) {
-          console.warn("Welcome email failed:", emailError);
+          // Welcome email failed - continue with OAuth creation
         }
       }
       
       return user;
     } catch (error) {
-      console.error("OAuth user creation error:", error);
       throw error;
     }
   }
@@ -324,12 +318,11 @@ class AuthService {
           location: "Unknown"
         });
       } catch (emailError) {
-        console.warn("Security alert email failed:", emailError);
+        // Security alert failed - continue with OAuth linking
       }
       
       return user;
     } catch (error) {
-      console.error("Link OAuth error:", error);
       throw error;
     }
   }
@@ -340,14 +333,12 @@ class AuthService {
   async verifyRecaptcha(token, action) {
     // Skip in development unless forced
     if (process.env.NODE_ENV === "development" && process.env.FORCE_RECAPTCHA !== "true") {
-      console.warn(`reCAPTCHA skipped for ${action} in development`);
       return true;
     }
 
     const result = await recaptchaService.verify(token, action);
     
     if (!result.success) {
-      console.error(`reCAPTCHA failed for ${action}:`, result);
       throw new Error("RECAPTCHA_FAILED");
     }
 
@@ -377,7 +368,6 @@ class AuthService {
       if (!user) throw new Error("USER_NOT_FOUND");
       return user;
     } catch (error) {
-      console.error("Update user name error:", error);
       throw error;
     }
   }

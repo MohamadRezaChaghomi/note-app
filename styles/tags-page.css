@@ -358,11 +358,43 @@
 .tag-card {
   position: relative;
   background: var(--bg-card);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-top: 4px solid var(--tag-color, #3b82f6);
   border-radius: var(--radius-xl);
   padding: 1.5rem;
   transition: all 0.3s ease;
   min-height: 160px;
+  cursor: pointer;
+}
+
+.dark .tag-card {
+  border-color: #374151;
+}
+
+/* Professional gradient border */
+.tag-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: linear-gradient(90deg, var(--tag-color-start), var(--tag-color-end));
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Top accent bar */
+.tag-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--tag-color);
 }
 
 .tag-card:hover {
@@ -486,14 +518,32 @@
 }
 
 .tag-list-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.25rem;
   background: var(--bg-card);
-  border: 1px solid var(--border-light);
+  border: 2px solid transparent;
   border-radius: var(--radius-lg);
   transition: all 0.2s ease;
+  background-clip: padding-box;
+  cursor: pointer;
+}
+
+/* Professional border for list items */
+.tag-list-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: var(--radius-lg);
+  padding: 1px;
+  background: linear-gradient(90deg, var(--tag-color-start), var(--tag-color-end));
+  pointer-events: none;
+  z-index: -1;
 }
 
 .tag-list-item:hover {

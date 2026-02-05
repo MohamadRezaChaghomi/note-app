@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Shield,
   Lock,
@@ -22,6 +23,7 @@ import "@/styles/security.css";
 
 export default function SecurityPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -41,6 +43,8 @@ export default function SecurityPage() {
   });
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
 
   useEffect(() => {
     loadSecurityData();
@@ -138,6 +142,31 @@ export default function SecurityPage() {
       toast.error(error.message || "Failed to change password");
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  const handleRequestPasswordReset = async () => {
+    try {
+      setSendingReset(true);
+      const res = await fetch("/api/auth/forget-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to send reset email");
+      }
+
+      setResetSent(true);
+      toast.success("Password reset email sent to your registered email");
+      setTimeout(() => setResetSent(false), 5000);
+    } catch (error) {
+      toast.error(error.message || "Failed to send reset email");
+    } finally {
+      setSendingReset(false);
     }
   };
 
@@ -252,6 +281,64 @@ export default function SecurityPage() {
         </div>
 
         <div className="security-content">
+          {/* Password Reset Section */}
+          <div className="security-section">
+            <div className="security-section-header">
+              <Key className="security-section-icon" />
+              <div className="security-section-title">
+                <h2>Password Reset</h2>
+                <p>Request a password reset via email</p>
+              </div>
+            </div>
+
+            <div className="security-section-content">
+              {resetSent ? (
+                <div className="security-success-message">
+                  <CheckCircle className="security-success-icon" />
+                  <div className="security-success-content">
+                    <p className="security-success-title">Reset email sent successfully</p>
+                    <p className="security-success-subtitle">
+                      Check your email for password reset instructions
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="security-input-group">
+                    <label className="security-label">Email Address</label>
+                    <input
+                      type="email"
+                      value={session?.user?.email || ""}
+                      disabled
+                      className="security-input security-disabled-input"
+                    />
+                    <p className="security-helper-text">
+                      Reset link will be sent to your registered email address
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleRequestPasswordReset}
+                    disabled={sendingReset}
+                    className="security-btn security-primary-btn"
+                  >
+                    {sendingReset ? (
+                      <>
+                        <Loader2 className="security-btn-icon security-btn-loader" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Key className="security-btn-icon" />
+                        Send Reset Email
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
           {/* Change Password Section */}
           <div className="security-section">
             <div className="security-section-header">

@@ -7,7 +7,7 @@ import {
   Edit, Eye, Send, Search, MoreVertical
 } from "lucide-react";
 import { toast } from "sonner";
-import "@styles/components/notes/note-sharing.module.css";
+import styles from "@styles/components/notes/note-sharing.module.css";
 
 export default function NoteSharing({ note, onClose, onUpdate }) {
   const [copied, setCopied] = useState(false);

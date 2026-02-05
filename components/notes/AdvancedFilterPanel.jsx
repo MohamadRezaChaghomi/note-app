@@ -1,348 +1,402 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { 
-  X, Calendar, Tag, Filter, Zap, Folder, 
-  Clock, Flag, Eye, EyeOff, Check 
+  X, Filter, Tag, Calendar, BarChart, Users, 
+  Lock, Eye, EyeOff, Clock, Hash, Folder,
+  ChevronDown, ChevronUp, Check, Plus, Minus
 } from "lucide-react";
-import "@styles/components/notes/advanced-filter.module.css";
-export default function AdvancedFilterPanel({ onApplyFilters, onClear, initialFilters = {} }) {
+import styles from "@styles/components/notes/advanced-filter.module.css";
+
+export default function AdvancedFilterPanel({
+  onApplyFilters,
+  onClear,
+  initialFilters
+}) {
   const [filters, setFilters] = useState({
-    priority: initialFilters.priority || "",
-    tags: initialFilters.tags || [],
-    dateRange: initialFilters.dateRange || { start: "", end: "" },
-    folder: initialFilters.folder || null,
-    showArchived: initialFilters.showArchived || false,
-    showTrashed: initialFilters.showTrashed || false,
-    minViews: initialFilters.minViews || "",
-    ...initialFilters
+    ...initialFilters,
+    wordCount: { min: null, max: null },
+    characterCount: { min: null, max: null },
+    sharedWith: [],
+    lockedOnly: false,
+    publicOnly: false,
+    hasAttachments: false,
+    hasLinks: false,
+    hasImages: false
   });
 
-  const priorities = [
-    { value: "high", label: "High Priority", color: "var(--color-error-500)", bg: "var(--color-error-50)" },
-    { value: "medium", label: "Medium Priority", color: "var(--color-warning-500)", bg: "var(--color-warning-50)" },
-    { value: "low", label: "Low Priority", color: "var(--color-success-500)", bg: "var(--color-success-50)" }
-  ];
+  const [expandedSections, setExpandedSections] = useState({
+    metrics: true,
+    sharing: true,
+    content: true,
+    advanced: false
+  });
 
-  // Mock folders - در واقعیت باید از API بیایند
-  const folders = [
-    { id: "1", title: "Personal", color: "#3b82f6" },
-    { id: "2", title: "Work", color: "#10b981" },
-    { id: "3", title: "Ideas", color: "#8b5cf6" },
-    { id: "4", title: "Archive", color: "#6b7280" }
-  ];
-
-  const handleApply = () => {
-    const cleanedFilters = {
-      priority: filters.priority || undefined,
-      tags: filters.tags.length > 0 ? filters.tags : undefined,
-      dateRange: filters.dateRange.start || filters.dateRange.end ? filters.dateRange : undefined,
-      folderId: filters.folder || undefined,
-      withTrashed: filters.showTrashed,
-      showArchived: filters.showArchived,
-      minViews: filters.minViews || undefined
-    };
-    
-    // حذف فیلدهای undefined
-    Object.keys(cleanedFilters).forEach(key => 
-      cleanedFilters[key] === undefined && delete cleanedFilters[key]
-    );
-    
-    onApplyFilters(cleanedFilters);
-  };
-
-  const handleClear = () => {
-    setFilters({
-      priority: "",
-      tags: [],
-      dateRange: { start: "", end: "" },
-      folder: null,
-      showArchived: false,
-      showTrashed: false,
-      minViews: ""
-    });
-    onClear();
-  };
-
-  const addTag = (tag) => {
-    const trimmedTag = tag.trim().toLowerCase();
-    if (trimmedTag && !filters.tags.includes(trimmedTag)) {
-      setFilters(prev => ({
-        ...prev,
-        tags: [...prev.tags, trimmedTag]
-      }));
-    }
-  };
-
-  const removeTag = (tagToRemove) => {
-    setFilters(prev => ({
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
       ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
+      [section]: !prev[section]
     }));
   };
 
+  const handleChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleNumericChange = (parentKey, childKey, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [parentKey]: {
+        ...prev[parentKey],
+        [childKey]: value ? parseInt(value) : null
+      }
+    }));
+  };
+
+  const handleApply = () => {
+    onApplyFilters(filters);
+  };
+
+  const handleReset = () => {
+    const resetFilters = {
+      priority: null,
+      tags: [],
+      dateRange: null,
+      folder: null,
+      showArchived: false,
+      showTrashed: false,
+      wordCount: { min: null, max: null },
+      characterCount: { min: null, max: null },
+      sharedWith: [],
+      lockedOnly: false,
+      publicOnly: false,
+      hasAttachments: false,
+      hasLinks: false,
+      hasImages: false
+    };
+    setFilters(resetFilters);
+  };
+
+  const priorityOptions = [
+    { id: null, label: 'All Priorities', color: 'gray' },
+    { id: 'critical', label: 'Critical', color: 'red' },
+    { id: 'high', label: 'High', color: 'orange' },
+    { id: 'medium', label: 'Medium', color: 'yellow' },
+    { id: 'low', label: 'Low', color: 'green' },
+    { id: 'none', label: 'No Priority', color: 'blue' }
+  ];
+
+  const contentTypes = [
+    { id: 'hasAttachments', label: 'Has Attachments', icon: Paperclip },
+    { id: 'hasLinks', label: 'Has Links', icon: Link },
+    { id: 'hasImages', label: 'Has Images', icon: Image }
+  ];
+
   return (
     <div className="advanced-filter-panel">
-      <div className="filter-header">
-        <div className="header-content">
-          <Filter className="w-5 h-5 text-primary-600" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Advanced Filters
-          </h3>
+      <div className="panel-header">
+        <div className="header-left">
+          <Filter size={20} />
+          <h3>Advanced Filters</h3>
+          <span className="badge">Beta</span>
         </div>
-        <button 
-          onClick={handleClear}
-          className="close-btn p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          title="Clear all filters"
-        >
-          <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-        </button>
+        <div className="header-right">
+          <button onClick={handleReset} className="reset-btn">
+            Reset All
+          </button>
+          <button onClick={onClear} className="close-btn">
+            <X size={20} />
+          </button>
+        </div>
       </div>
 
-      <div className="filter-sections space-y-6">
-        {/* Priority Filter */}
+      <div className="panel-content">
+        {/* Metrics Section */}
         <div className="filter-section">
-          <label className="section-label">
-            <Zap className="w-4 h-4" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Priority
-            </span>
-          </label>
-          <div className="priority-options flex flex-wrap gap-2">
-            {priorities.map(p => (
-              <button
-                key={p.value}
-                onClick={() => setFilters(prev => ({
-                  ...prev,
-                  priority: prev.priority === p.value ? "" : p.value
-                }))}
-                className={`priority-btn inline-flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
-                  filters.priority === p.value 
-                    ? 'border-current font-semibold' 
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-                style={{
-                  color: filters.priority === p.value ? p.color : 'var(--text-secondary)',
-                  backgroundColor: filters.priority === p.value ? p.bg : 'transparent'
-                }}
-              >
-                {filters.priority === p.value && (
-                  <Check className="w-3 h-3" />
-                )}
-                <span>{p.label}</span>
-              </button>
-            ))}
+          <div 
+            className="section-header" 
+            onClick={() => toggleSection('metrics')}
+          >
+            <div className="section-title">
+              <BarChart size={18} />
+              <h4>Content Metrics</h4>
+            </div>
+            {expandedSections.metrics ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </div>
+          
+          {expandedSections.metrics && (
+            <div className="metrics-grid">
+              <div className="metric-group">
+                <label className="metric-label">
+                  <Hash size={14} />
+                  Word Count
+                </label>
+                <div className="range-inputs">
+                  <div className="range-input">
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={filters.wordCount.min || ''}
+                      onChange={(e) => handleNumericChange('wordCount', 'min', e.target.value)}
+                      className="range-min"
+                    />
+                  </div>
+                  <span className="range-separator">to</span>
+                  <div className="range-input">
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={filters.wordCount.max || ''}
+                      onChange={(e) => handleNumericChange('wordCount', 'max', e.target.value)}
+                      className="range-max"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="metric-group">
+                <label className="metric-label">
+                  <Hash size={14} />
+                  Character Count
+                </label>
+                <div className="range-inputs">
+                  <div className="range-input">
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={filters.characterCount.min || ''}
+                      onChange={(e) => handleNumericChange('characterCount', 'min', e.target.value)}
+                      className="range-min"
+                    />
+                  </div>
+                  <span className="range-separator">to</span>
+                  <div className="range-input">
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={filters.characterCount.max || ''}
+                      onChange={(e) => handleNumericChange('characterCount', 'max', e.target.value)}
+                      className="range-max"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Folder Filter */}
+        {/* Sharing Section */}
         <div className="filter-section">
-          <label className="section-label">
-            <Folder className="w-4 h-4" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Folder
-            </span>
-          </label>
-          <div className="folder-options grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <button
-              onClick={() => setFilters(prev => ({ ...prev, folder: null }))}
-              className={`folder-btn px-3 py-2 rounded-lg border text-sm transition-all ${
-                !filters.folder
-                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
-            >
-              All Folders
-            </button>
-            {folders.map(folder => (
-              <button
-                key={folder.id}
-                onClick={() => setFilters(prev => ({ 
-                  ...prev, 
-                  folder: prev.folder === folder.id ? null : folder.id 
-                }))}
-                className={`folder-btn px-3 py-2 rounded-lg border text-sm transition-all flex items-center gap-2 ${
-                  filters.folder === folder.id
-                    ? 'border-current font-semibold'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-                style={{
-                  color: filters.folder === folder.id ? folder.color : 'var(--text-secondary)',
-                  borderColor: filters.folder === folder.id ? folder.color : undefined
-                }}
-              >
-                <div 
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: folder.color }}
+          <div 
+            className="section-header" 
+            onClick={() => toggleSection('sharing')}
+          >
+            <div className="section-title">
+              <Users size={18} />
+              <h4>Sharing & Privacy</h4>
+            </div>
+            {expandedSections.sharing ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </div>
+          
+          {expandedSections.sharing && (
+            <div className="sharing-options">
+              <div className="privacy-options">
+                <label className="option-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={filters.lockedOnly}
+                    onChange={(e) => handleChange('lockedOnly', e.target.checked)}
+                  />
+                  <Lock size={14} />
+                  <span>Only Locked Notes</span>
+                </label>
+                
+                <label className="option-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={filters.publicOnly}
+                    onChange={(e) => handleChange('publicOnly', e.target.checked)}
+                  />
+                  <Eye size={14} />
+                  <span>Only Public Notes</span>
+                </label>
+              </div>
+              
+              <div className="shared-with">
+                <label className="shared-label">Shared With:</label>
+                <div className="user-tags">
+                  {filters.sharedWith.map((user, index) => (
+                    <span key={index} className="user-tag">
+                      {user}
+                      <button
+                        onClick={() => {
+                          const newUsers = filters.sharedWith.filter((_, i) => i !== index);
+                          handleChange('sharedWith', newUsers);
+                        }}
+                        className="remove-user"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="add-user">
+                  <input
+                    type="text"
+                    placeholder="Add user by email..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.target.value.trim()) {
+                        const newUsers = [...filters.sharedWith, e.target.value.trim()];
+                        handleChange('sharedWith', newUsers);
+                        e.target.value = '';
+                      }
+                    }}
+                    className="user-input"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Content Type Section */}
+        <div className="filter-section">
+          <div 
+            className="section-header" 
+            onClick={() => toggleSection('content')}
+          >
+            <div className="section-title">
+              <FileText size={18} />
+              <h4>Content Types</h4>
+            </div>
+            {expandedSections.content ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </div>
+          
+          {expandedSections.content && (
+            <div className="content-types">
+              {contentTypes.map((type) => {
+                const Icon = type.icon;
+                return (
+                  <label key={type.id} className="content-type-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={filters[type.id]}
+                      onChange={(e) => handleChange(type.id, e.target.checked)}
+                    />
+                    <Icon size={16} />
+                    <span>{type.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Priority Section */}
+        <div className="filter-section">
+          <div 
+            className="section-header" 
+            onClick={() => toggleSection('advanced')}
+          >
+            <div className="section-title">
+              <BarChart size={18} />
+              <h4>Priority Level</h4>
+            </div>
+            {expandedSections.advanced ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </div>
+          
+          {expandedSections.advanced && (
+            <div className="priority-options">
+              {priorityOptions.map((option) => (
+                <button
+                  key={option.id || 'all'}
+                  onClick={() => handleChange('priority', option.id)}
+                  className={`priority-option ${filters.priority === option.id ? 'active' : ''} ${option.color}`}
+                >
+                  {filters.priority === option.id && <Check size={14} />}
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Date Range Section */}
+        <div className="filter-section">
+          <div className="section-header">
+            <Calendar size={18} />
+            <h4>Custom Date Range</h4>
+          </div>
+          
+          <div className="date-range-picker">
+            <div className="date-inputs">
+              <div className="date-input-group">
+                <label>Start Date</label>
+                <input
+                  type="date"
+                  value={filters.dateRange?.start || ''}
+                  onChange={(e) => handleChange('dateRange', { 
+                    ...filters.dateRange, 
+                    start: e.target.value 
+                  })}
+                  className="date-input"
                 />
-                <span className="truncate">{folder.title}</span>
+              </div>
+              <div className="date-input-group">
+                <label>End Date</label>
+                <input
+                  type="date"
+                  value={filters.dateRange?.end || ''}
+                  onChange={(e) => handleChange('dateRange', { 
+                    ...filters.dateRange, 
+                    end: e.target.value 
+                  })}
+                  className="date-input"
+                />
+              </div>
+            </div>
+            
+            <div className="quick-dates">
+              <button
+                onClick={() => handleChange('dateRange', { start: 'today' })}
+                className="quick-date-btn"
+              >
+                Today
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Date Range */}
-        <div className="filter-section">
-          <label className="section-label">
-            <Calendar className="w-4 h-4" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Date Range
-            </span>
-          </label>
-          <div className="date-inputs grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="date-input-group">
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                From
-              </label>
-              <input
-                type="date"
-                value={filters.dateRange.start}
-                onChange={(e) => setFilters(prev => ({
-                  ...prev,
-                  dateRange: { ...prev.dateRange, start: e.target.value }
-                }))}
-                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-              />
-            </div>
-            <div className="date-input-group">
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                To
-              </label>
-              <input
-                type="date"
-                value={filters.dateRange.end}
-                onChange={(e) => setFilters(prev => ({
-                  ...prev,
-                  dateRange: { ...prev.dateRange, end: e.target.value }
-                }))}
-                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Tags */}
-        <div className="filter-section">
-          <label className="section-label">
-            <Tag className="w-4 h-4" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Tags
-            </span>
-          </label>
-          <div className="tags-input-wrapper">
-            <input
-              type="text"
-              placeholder="Type a tag and press Enter"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addTag(e.target.value);
-                  e.target.value = '';
-                }
-              }}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-            />
-            {filters.tags.length > 0 && (
-              <div className="selected-tags flex flex-wrap gap-2 mt-3">
-                {filters.tags.map((tag, idx) => (
-                  <span 
-                    key={idx} 
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 rounded-full text-sm"
-                  >
-                    #{tag}
-                    <button
-                      onClick={() => removeTag(tag)}
-                      className="ml-1 p-0.5 hover:bg-primary-200 dark:hover:bg-primary-800 rounded-full transition-colors"
-                      aria-label={`Remove ${tag}`}
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Additional Options */}
-        <div className="filter-section">
-          <label className="section-label mb-3">
-            <Clock className="w-4 h-4" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Additional Options
-            </span>
-          </label>
-          <div className="additional-options space-y-3">
-            <label className="option-checkbox flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={filters.showArchived}
-                onChange={(e) => setFilters(prev => ({ 
-                  ...prev, 
-                  showArchived: e.target.checked 
-                }))}
-                className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
-              />
-              <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4 text-gray-500" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Show Archived Notes
-                </span>
-              </div>
-            </label>
-            
-            <label className="option-checkbox flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={filters.showTrashed}
-                onChange={(e) => setFilters(prev => ({ 
-                  ...prev, 
-                  showTrashed: e.target.checked 
-                }))}
-                className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
-              />
-              <div className="flex items-center gap-2">
-                <EyeOff className="w-4 h-4 text-gray-500" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Show Trashed Notes
-                </span>
-              </div>
-            </label>
-            
-            <div className="views-filter mt-4">
-              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Minimum Views
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={filters.minViews}
-                onChange={(e) => setFilters(prev => ({ 
-                  ...prev, 
-                  minViews: e.target.value 
-                }))}
-                placeholder="e.g., 10"
-                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-              />
+              <button
+                onClick={() => handleChange('dateRange', { start: 'week' })}
+                className="quick-date-btn"
+              >
+                This Week
+              </button>
+              <button
+                onClick={() => handleChange('dateRange', { start: 'month' })}
+                className="quick-date-btn"
+              >
+                This Month
+              </button>
+              <button
+                onClick={() => handleChange('dateRange', { start: 'year' })}
+                className="quick-date-btn"
+              >
+                This Year
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="filter-actions flex gap-3 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-        <button
-          onClick={handleApply}
-          className="apply-btn flex-1 px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-medium rounded-lg hover:from-primary-700 hover:to-primary-800 active:scale-[0.98] transition-all shadow-lg hover:shadow-xl"
-        >
-          Apply Filters
-        </button>
-        <button
-          onClick={handleClear}
-          className="clear-btn px-4 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-[0.98] transition-all"
-        >
-          Clear All
+      <div className="panel-footer">
+        <button onClick={handleApply} className="apply-filters-btn">
+          Apply Advanced Filters
         </button>
       </div>
     </div>
   );
 }
+
+// Icons for content types
+function Paperclip(props) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>; }
+function Link(props) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>; }
+function Image(props) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>; }
+function FileText(props) { return <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>; }

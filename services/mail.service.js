@@ -26,10 +26,8 @@ class MailService {
   async verifyConnection() {
     try {
       await this.transporter.verify();
-      console.log('✅ SMTP server connection verified');
     } catch (error) {
-      console.warn('⚠️ SMTP connection failed:', error.message);
-      console.warn('⚠️ Email sending will be simulated in development mode');
+      // SMTP connection verification failed - will use simulated mode
     }
   }
 
@@ -99,12 +97,6 @@ class MailService {
   async send(mailOptions) {
     // In development mode without SMTP, simulate email sending
     if (process.env.NODE_ENV === 'development' && (!process.env.SMTP_HOST || !process.env.SMTP_USER)) {
-      console.log('📧 [SIMULATED EMAIL]:', {
-        to: mailOptions.to,
-        subject: mailOptions.subject,
-        preview: mailOptions.text.substring(0, 100) + '...'
-      });
-      
       // Simulate delay
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -120,18 +112,14 @@ class MailService {
 
     try {
       const info = await this.transporter.sendMail(mailOptions);
-      console.log('✅ Email sent:', info.messageId);
       return info;
     } catch (error) {
-      console.error('❌ Email sending failed:', error);
-      
       // If SMTP fails in production, throw the error
       if (process.env.NODE_ENV === 'production') {
         throw new Error('Failed to send email');
       }
       
       // In development, simulate success if SMTP fails
-      console.warn('⚠️ Simulating email in development due to SMTP failure');
       return {
         messageId: 'simulated-' + Date.now(),
         accepted: [mailOptions.to],

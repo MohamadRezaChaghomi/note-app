@@ -65,14 +65,6 @@ export default function Providers({ children, session }) { // دریافت sessi
             <Script
               src={`https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`}
               strategy="afterInteractive"
-              onLoad={() => {
-                if (typeof window !== 'undefined' && window.grecaptcha) {
-                  console.log('✅ reCAPTCHA loaded successfully');
-                }
-              }}
-              onError={() => {
-                console.error('❌ Failed to load reCAPTCHA');
-              }}
             />
           )}
         </ThemeProvider>

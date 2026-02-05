@@ -65,7 +65,7 @@ export default function NewFolderPage() {
     <div className="new-folder-page theme-transition">
       <div className="new-folder-container">
         <div className="new-folder-header">
-          <Link href="/folders" className="back-link">
+          <Link href="/dashboard/folders" className="back-link">
             <ArrowLeft className="back-link-icon" />
             Back to Folders
           </Link>
